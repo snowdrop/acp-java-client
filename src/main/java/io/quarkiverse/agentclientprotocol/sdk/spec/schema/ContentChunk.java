@@ -1,0 +1,15 @@
+package io.quarkiverse.agentclientprotocol.sdk.spec.schema;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
+
+/**
+ * A streamed item of content
+ */
+public record ContentChunk(
+        @JsonProperty("_meta") Map<String, Object> meta,
+        @JsonProperty("content") Object content) {
+    public ContentChunk(Object content) {
+        this(null, content);
+    }
+}

@@ -1,0 +1,12 @@
+.idea
+target/
+.env
+*.sh
+sandbox
+
+# Testing purposes
+HELLO.md
+
+# ai
+.claude
+.opencode
