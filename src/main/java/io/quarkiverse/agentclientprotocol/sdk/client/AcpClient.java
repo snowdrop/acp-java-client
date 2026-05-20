@@ -57,17 +57,29 @@ public final class AcpClient {
             return this;
         }
 
+        /**
+         * Sets the consumer for session update notifications streamed during prompt processing.
+         *
+         * @param consumer the notification consumer
+         * @return this builder
+         */
         public SyncBuilder sessionUpdateConsumer(Consumer<SessionNotification> consumer) {
             this.sessionUpdateConsumer = consumer;
             return this;
         }
 
+        /**
+         * Builds and connects the synchronous client.
+         *
+         * @return a connected {@link AcpSyncClient}
+         */
         public AcpSyncClient build() {
             AcpAsyncClient async = new AcpAsyncClient(transport, requestTimeout, sessionUpdateConsumer);
             return new AcpSyncClient(async);
         }
     }
 
+    /** Builder for configuring and creating an {@link AcpAsyncClient}. */
     public static class AsyncBuilder {
         private final StdioAcpClientTransport transport;
         private Duration requestTimeout = Duration.ofSeconds(30);
@@ -77,16 +89,23 @@ public final class AcpClient {
             this.transport = transport;
         }
 
+        /** @see SyncBuilder#requestTimeout(Duration) */
         public AsyncBuilder requestTimeout(Duration timeout) {
             this.requestTimeout = timeout;
             return this;
         }
 
+        /** @see SyncBuilder#sessionUpdateConsumer(Consumer) */
         public AsyncBuilder sessionUpdateConsumer(Consumer<SessionNotification> consumer) {
             this.sessionUpdateConsumer = consumer;
             return this;
         }
 
+        /**
+         * Builds the asynchronous client. Call {@link AcpAsyncClient#connect()} to start it.
+         *
+         * @return an {@link AcpAsyncClient} (not yet connected)
+         */
         public AcpAsyncClient build() {
             return new AcpAsyncClient(transport, requestTimeout, sessionUpdateConsumer);
         }

@@ -9,6 +9,18 @@ import java.util.stream.Collectors;
 
 /**
  * Configuration for launching an ACP agent process via stdio.
+ *
+ * <p>Encapsulates the command, arguments, and environment variables needed to
+ * start the agent subprocess. A safe subset of the host environment is inherited
+ * by default (platform-dependent).
+ *
+ * <p>Use the {@link Builder} to construct instances:
+ * <pre>{@code
+ * var params = AgentParameters.builder("opencode")
+ *         .arg("acp")
+ *         .addEnvVar("OPENCODE_MODEL", "anthropic/claude-sonnet")
+ *         .build();
+ * }</pre>
  */
 public class AgentParameters {
 
@@ -32,14 +44,26 @@ public class AgentParameters {
         }
     }
 
+    /** @return the executable command (e.g. {@code "opencode"}) */
     public String getCommand() { return command; }
+
+    /** @return the command-line arguments */
     public List<String> getArgs() { return args; }
+
+    /** @return the environment variables for the subprocess */
     public Map<String, String> getEnv() { return env; }
 
+    /**
+     * Creates a new builder for the given command.
+     *
+     * @param command the executable to launch (e.g. {@code "opencode"})
+     * @return a new {@link Builder}
+     */
     public static Builder builder(String command) {
         return new Builder(command);
     }
 
+    /** Fluent builder for {@link AgentParameters}. */
     public static class Builder {
         private final String command;
         private final List<String> args = new ArrayList<>();
@@ -49,6 +73,12 @@ public class AgentParameters {
             this.command = command;
         }
 
+        /**
+         * Adds multiple command-line arguments.
+         *
+         * @param args the arguments to append
+         * @return this builder
+         */
         public Builder args(String... args) {
             this.args.addAll(Arrays.asList(args));
             return this;
