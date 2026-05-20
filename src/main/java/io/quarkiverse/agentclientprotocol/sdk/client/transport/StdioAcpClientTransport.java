@@ -30,8 +30,26 @@ import java.util.function.Consumer;
 /**
  * Mutiny-based ACP stdio transport.
  *
- * Communicates with an agent process using standard input/output streams.
- * Messages are exchanged as newline-delimited JSON-RPC over stdin/stdout.
+ * <p>Communicates with an ACP agent subprocess using standard input/output streams.
+ * Messages are exchanged as newline-delimited JSON-RPC 2.0 over stdin/stdout.
+ *
+ * <p>Threading model:
+ * <ul>
+ *   <li><b>inbound</b> — daemon thread reading from the agent's stdout, dispatching
+ *       parsed JSON messages to the registered {@link #setInboundMessageHandler handler}</li>
+ *   <li><b>outbound</b> — daemon thread consuming a Mutiny {@link io.smallrye.mutiny.Multi}
+ *       and writing serialized JSON to the agent's stdin</li>
+ *   <li><b>error</b> — daemon thread forwarding the agent's stderr to a configurable handler</li>
+ * </ul>
+ *
+ * <p>The default {@link ObjectMapper} is configured with:
+ * <ul>
+ *   <li>{@code FAIL_ON_UNKNOWN_PROPERTIES = false} for forward compatibility</li>
+ *   <li>{@code NON_NULL} serialization to avoid sending null fields</li>
+ *   <li>A custom {@link TextContent} serializer that adds the required {@code "type": "text"} discriminator</li>
+ * </ul>
+ *
+ * @see AgentParameters
  */
 public class StdioAcpClientTransport {
 
@@ -55,6 +73,11 @@ public class StdioAcpClientTransport {
     private Consumer<String> stdErrorHandler = error -> logger.info("STDERR: {}", error);
     private Consumer<JsonNode> inboundMessageHandler;
 
+    /**
+     * Creates a transport with the default {@link ObjectMapper} configuration.
+     *
+     * @param params the agent process configuration
+     */
     public StdioAcpClientTransport(AgentParameters params) {
         this(params, createDefaultMapper());
     }
@@ -90,6 +113,12 @@ public class StdioAcpClientTransport {
         }
     }
 
+    /**
+     * Creates a transport with a custom {@link ObjectMapper}.
+     *
+     * @param params the agent process configuration
+     * @param mapper the Jackson mapper for JSON serialization/deserialization
+     */
     public StdioAcpClientTransport(AgentParameters params, ObjectMapper mapper) {
         this.params = params;
         this.mapper = mapper;
@@ -111,14 +140,29 @@ public class StdioAcpClientTransport {
         });
     }
 
+    /**
+     * Sets the handler for incoming JSON-RPC messages (responses and notifications).
+     *
+     * @param handler the message consumer
+     */
     public void setInboundMessageHandler(Consumer<JsonNode> handler) {
         this.inboundMessageHandler = handler;
     }
 
+    /**
+     * Sets the handler for the agent's stderr output. Defaults to logging at INFO level.
+     *
+     * @param handler the stderr line consumer
+     */
     public void setStdErrorHandler(Consumer<String> handler) {
         this.stdErrorHandler = handler;
     }
 
+    /**
+     * Launches the agent process and starts the inbound, outbound, and error processing threads.
+     *
+     * @return a {@link Uni} that completes when the transport is ready
+     */
     public Uni<Void> connect() {
         return Uni.createFrom().item(() -> {
             logger.info("ACP agent starting");
@@ -151,6 +195,12 @@ public class StdioAcpClientTransport {
         }).replaceWithVoid();
     }
 
+    /**
+     * Sends a JSON-RPC message to the agent process via the outbound queue.
+     *
+     * @param message the JSON message to send
+     * @return a {@link Uni} that completes when the message is queued
+     */
     public Uni<Void> sendMessage(JsonNode message) {
         return Uni.createFrom().voidItem()
                 .invoke(() -> {
@@ -239,6 +289,13 @@ public class StdioAcpClientTransport {
         });
     }
 
+    /**
+     * Gracefully shuts down the transport: cancels the outbound subscription,
+     * sends SIGTERM to the agent process, waits up to 5 seconds for exit,
+     * and shuts down all executor threads.
+     *
+     * @return a {@link Uni} that completes when shutdown is finished
+     */
     public Uni<Void> closeGracefully() {
         return Uni.createFrom().voidItem()
                 .invoke(() -> {
@@ -284,6 +341,11 @@ public class StdioAcpClientTransport {
                 });
     }
 
+    /**
+     * Returns the {@link ObjectMapper} used by this transport for JSON processing.
+     *
+     * @return the configured mapper
+     */
     public ObjectMapper getMapper() {
         return mapper;
     }

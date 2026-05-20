@@ -84,16 +84,34 @@ public class AgentParameters {
             return this;
         }
 
+        /**
+         * Adds a single command-line argument.
+         *
+         * @param arg the argument to append
+         * @return this builder
+         */
         public Builder arg(String arg) {
             this.args.add(arg);
             return this;
         }
 
+        /**
+         * Adds an environment variable for the subprocess.
+         *
+         * @param key   the variable name
+         * @param value the variable value
+         * @return this builder
+         */
         public Builder addEnvVar(String key, String value) {
             this.env.put(key, value);
             return this;
         }
 
+        /**
+         * Builds the {@link AgentParameters} instance.
+         *
+         * @return the configured parameters
+         */
         public AgentParameters build() {
             return new AgentParameters(command, args, env);
         }

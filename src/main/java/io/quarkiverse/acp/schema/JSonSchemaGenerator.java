@@ -9,6 +9,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
+/**
+ * Code generator that produces Java records and enums from the ACP JSON Schema.
+ *
+ * <p>Reads the schema definition from {@code /schema/acp/v1/schema.json} on the classpath
+ * and generates one {@code .java} file per type under the
+ * {@code io.quarkiverse.agentclientprotocol.sdk.spec.schema} package.
+ *
+ * <p>Supported schema constructs:
+ * <ul>
+ *   <li><b>Objects with properties</b> &rarr; Java {@code record} with Jackson annotations</li>
+ *   <li><b>String enums</b> ({@code "enum"} array) &rarr; Java {@code enum} with {@code @JsonValue}</li>
+ *   <li><b>oneOf with const values</b> &rarr; Java {@code enum}</li>
+ *   <li><b>String/integer type aliases</b> &rarr; skipped (mapped to {@code String}/{@code Integer})</li>
+ *   <li><b>anyOf union types</b> &rarr; skipped (use {@code Object} at call sites)</li>
+ * </ul>
+ *
+ * <p>Run as a standalone program:
+ * <pre>{@code
+ * mvn exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator
+ * }</pre>
+ */
 public class JSonSchemaGenerator {
 
     private static final String PACKAGE = "io.quarkiverse.agentclientprotocol.sdk.spec.schema";
@@ -16,6 +37,12 @@ public class JSonSchemaGenerator {
 
     private static JsonNode allDefs;
 
+    /**
+     * Reads the ACP JSON Schema and generates Java source files.
+     *
+     * @param args unused
+     * @throws IOException if the schema cannot be read or files cannot be written
+     */
     public static void main(String[] args) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
 
@@ -41,6 +68,14 @@ public class JSonSchemaGenerator {
         }
     }
 
+    /**
+     * Generates the Java source for a single schema definition, or {@code null} if the
+     * type should be skipped (e.g. string aliases, union types).
+     *
+     * @param name   the schema definition name (becomes the Java type name)
+     * @param schema the JSON Schema node
+     * @return the generated Java source, or {@code null}
+     */
     private static String generateType(String name, JsonNode schema) {
         // String type aliases -> skip (just use String)
         if (isStringAlias(schema)) {
@@ -66,7 +101,9 @@ public class JSonSchemaGenerator {
         return null;
     }
 
-    // --- String Enum ---
+    /**
+     * Generates a Java enum from a schema with an {@code "enum"} array of string values.
+     */
     private static String generateStringEnum(String name, JsonNode schema) {
         StringBuilder sb = new StringBuilder();
         sb.append("package ").append(PACKAGE).append(";\n\n");
@@ -94,7 +131,10 @@ public class JSonSchemaGenerator {
         return sb.toString();
     }
 
-    // --- oneOf const enum (e.g., StopReason, ToolCallStatus) ---
+    /**
+     * Generates a Java enum from a {@code oneOf} schema where each option has a {@code const} value
+     * (e.g. {@code StopReason}, {@code ToolCallStatus}).
+     */
     private static String generateOneOfEnum(String name, JsonNode schema) {
         StringBuilder sb = new StringBuilder();
         sb.append("package ").append(PACKAGE).append(";\n\n");
@@ -125,7 +165,11 @@ public class JSonSchemaGenerator {
         return sb.toString();
     }
 
-    // --- Record ---
+    /**
+     * Generates a Java {@code record} from an object schema with properties.
+     * Produces a canonical constructor with all fields and, when optional fields exist,
+     * a convenience constructor with only the required fields.
+     */
     private static String generateRecord(String name, JsonNode schema) {
         JsonNode properties = schema.get("properties");
         Set<String> required = new LinkedHashSet<>();
@@ -205,7 +249,13 @@ public class JSonSchemaGenerator {
         return sb.toString();
     }
 
-    // --- Type resolution ---
+    /**
+     * Resolves a JSON Schema property definition to a Java type string.
+     * Handles {@code $ref}, {@code allOf}, {@code anyOf}, arrays, and primitive types.
+     *
+     * @param propSchema the property schema node
+     * @return the Java type name (e.g. {@code "String"}, {@code "List<ToolCallLocation>"})
+     */
     private static String resolveJavaType(JsonNode propSchema) {
         // $ref
         if (propSchema.has("$ref")) {

@@ -5,6 +5,8 @@ import io.quarkiverse.agentclientprotocol.sdk.client.AcpSyncClient;
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.AgentParameters;
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
 import io.quarkiverse.agentclientprotocol.sdk.spec.schema.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,8 @@ import java.util.Map;
  */
 public class OpenCodeAcp {
 
+    private static final Logger logger = LoggerFactory.getLogger(OpenCodeAcp.class);
+
     /** Default prompt used when no arguments are provided. */
     private static final String DEFAULT_PROMPT = "Say Hello in 5 languages";
 
@@ -37,7 +41,10 @@ public class OpenCodeAcp {
      * @param args optional prompt text; if provided, all arguments are joined with spaces
      */
     public static void main(String[] args) {
-        String prompt = args.length > 0 ? String.join(" ", args) : DEFAULT_PROMPT;
+        String sysPropPrompt = System.getProperty("prompt");
+        String prompt = (sysPropPrompt != null && !sysPropPrompt.isEmpty())
+                ? sysPropPrompt
+                : (args.length > 0 ? String.join(" ", args) : DEFAULT_PROMPT);
         // 1. Configure agent parameters
         var params = AgentParameters.builder("opencode")
                 .arg("acp")
@@ -57,27 +64,35 @@ public class OpenCodeAcp {
 
             // 4. Initialize — handshake with the agent
             var initResponse = client.initialize();
-            System.out.println("Connected to agent!");
-            System.out.printf("Agent: %s v%s (%s)%n",
-                    initResponse.agentInfo().name(),
-                    initResponse.agentInfo().version(),
-                    initResponse.agentInfo().title());
-            System.out.println("Capabilities: " + initResponse.agentCapabilities());
-            System.out.println("Auth methods: " + initResponse.authMethods());
+            var agentInfo = initResponse.agentInfo();
+            String title = agentInfo.title();
+            String connectedMsg = (title != null && !title.isEmpty())
+                    ? String.format("Connected to agent: %s - v%s - %s", agentInfo.name(), agentInfo.version(), title)
+                    : String.format("Connected to agent: %s - v%s", agentInfo.name(), agentInfo.version());
+            logger.info(connectedMsg);
+            logger.debug("Capabilities: {}", initResponse.agentCapabilities());
+            logger.debug("Auth methods: {}", initResponse.authMethods());
 
             // 5. Create a session
             var session = client.newSession(new NewSessionRequest(".", List.of()));
             var sessionId = session.sessionId();
-            System.out.println("Session created: " + sessionId);
+            logger.info("Session created: {}", sessionId);
+            if (session.configOptions() != null) {
+                session.configOptions().stream()
+                        .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                        .findFirst()
+                        .ifPresent(opt -> logger.info("Model: {}", opt.name()));
+            }
 
             // 6. Send a prompt
-            System.out.println("\nSending prompt...");
+            logger.info("Sending prompt: {}", prompt);
+            System.out.println("Here is the AI response:");
             var response = client.prompt(new PromptRequest(
                     List.of(new TextContent(prompt)),
                     sessionId
             ));
 
-            System.out.println("\nDone! Stop reason: " + response.stopReason());
+            logger.info("\nDone! Stop reason: {}", response.stopReason());
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -95,40 +110,49 @@ public class OpenCodeAcp {
      */
     private static void handleSessionUpdate(String updateType, Object update) {
         if (update == null) {
-            System.out.println("[Update] null");
+            logger.debug("[Update] null");
             return;
         }
 
         switch (update) {
             case ContentChunk chunk -> {
                 if ("agent_thought_chunk".equals(updateType)) {
-                    System.out.println("[Thought] " + extractText(chunk.content()));
+                    logger.debug("[Thought] {}", extractText(chunk.content()));
                 } else {
+                    // Agent message text is always printed (primary output)
                     System.out.print(extractText(chunk.content()));
                 }
             }
             case Plan plan -> {
-                System.out.println("[Plan] " + plan.entries().size() + " steps:");
-                plan.entries().forEach(e -> System.out.println("  - " + e.content() + " [" + e.status() + "]"));
+                logger.debug("[Plan] {} steps:", plan.entries().size());
+                plan.entries().forEach(e -> logger.debug("  - {} [{}]", e.content(), e.status()));
             }
             case ToolCall tool -> {
-                System.out.println("[ToolCall] " + tool.title() + " (" + tool.kind() + ") - " + tool.status());
+                logger.debug("[ToolCall] {} ({}) - {}", tool.title(), tool.kind(), tool.status());
             }
             case ToolCallUpdate toolUpdate -> {
-                System.out.println("[ToolUpdate] " + toolUpdate.title() + " - " + toolUpdate.status());
+                logger.debug("[ToolUpdate] {} - {}", toolUpdate.title(), toolUpdate.status());
             }
             case AvailableCommandsUpdate commands -> {
-                System.out.println("[Commands] Available:");
+                logger.debug("[Commands] Available:");
                 commands.availableCommands()
-                        .forEach(c -> System.out.println("  /" + c.name() + " - " + c.description()));
+                        .forEach(c -> logger.debug("  /{} - {}", c.name(), c.description()));
             }
-            case CurrentModeUpdate mode -> System.out.println("[Mode] " + mode.currentModeId());
+            case ConfigOptionUpdate configUpdate -> {
+                if (configUpdate.configOptions() != null) {
+                    configUpdate.configOptions().stream()
+                            .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                            .findFirst()
+                            .ifPresent(opt -> logger.info("Model changed: {}", opt.name()));
+                }
+                logger.debug("[Config] {}", configUpdate.configOptions());
+            }
+            case CurrentModeUpdate mode -> logger.debug("[Mode] {}", mode.currentModeId());
             default -> {
                 if ("usage_update".equals(updateType) && update instanceof Map<?,?> map) {
-                    System.out.printf("%n%n[Usage] used=%s size=%s cost=%s%n",
-                            map.get("used"), map.get("size"), map.get("cost"));
+                    logger.debug("[Usage] used={} size={} cost={}", map.get("used"), map.get("size"), map.get("cost"));
                 } else {
-                    System.out.println("[Update] " + updateType + ": " + update);
+                    logger.debug("[Update] {}: {}", updateType, update);
                 }
             }
         }
