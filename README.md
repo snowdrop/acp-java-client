@@ -1,4 +1,4 @@
-# Java Client implementing Agent Client Protocol (ACP)
+# Java Client - Agent Client Protocol (ACP)
 
 The [Agent Client Protocol](https://agentclientprotocol.com/) (ACP) is an open standard for communication between clients and AI coding agents. It defines a JSON-RPC 2.0-based protocol over stdio that lets clients initialize sessions, send prompts, receive streamed updates (thoughts, messages, tool calls, plans), and manage the agent lifecycle.
 
