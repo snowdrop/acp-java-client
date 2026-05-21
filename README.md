@@ -4,7 +4,17 @@ The [Agent Client Protocol](https://agentclientprotocol.com/) (ACP) is an open s
 
 This project is a Java library for ACP, built with [SmallRye Mutiny](https://smallrye.io/smallrye-mutiny/) for reactive/async operations and [Jackson](https://github.com/FasterXML/jackson) for JSON processing. It provides both synchronous and asynchronous APIs to interact with any ACP-compatible agent (e.g. [OpenCode](https://opencode.ai/)) using stdio.
 
-The project implements the [ACP Schema Specification v1](https://agentclientprotocol.com/specification). The JSON schema definition is bundled at `src/main/resources/schema/acp/v1/schema.json` and Java records are generated from it using `JSonSchemaGenerator` (a custom code generator included in this project). See [CONTRIBUTING.md](CONTRIBUTING.md) for details on regenerating schema classes.
+The project implements the [ACP Schema Specification v1](https://agentclientprotocol.com/specification). The JSON schema definition is bundled at `schema/src/main/resources/schema/acp/v1/schema.json` and Java records are generated from it using `JSonSchemaGenerator` (a custom code generator included in the `schema` module). See [CONTRIBUTING.md](CONTRIBUTING.md) for details on regenerating schema classes.
+
+## Project structure
+
+The project is organized as a multi-module Maven build:
+
+| Module   | Artifact ID     | Description                                                                                                      |
+|----------|-----------------|------------------------------------------------------------------------------------------------------------------|
+| `schema` | `acp-schema`    | ACP JSON Schema (`v1`), generated Java records/enums, and `JSonSchemaGenerator` code generator                   |
+| `core`   | `acp-core` | ACP implementation library: `AcpClient`, `AcpAsyncClient`, `AcpSyncClient`, stdio transport. Depends on `schema` |
+| `client` | `acp-client` | CLI example (`AcpAgentCli`), skills, and sandbox. Depends on `core`                                              |
 
 ## Prerequisites
 
@@ -14,15 +24,15 @@ The project implements the [ACP Schema Specification v1](https://agentclientprot
 
 ## Usage
 
-Compile the project ad run the `mvn exec:exec` commandd:
+Compile the project and run the `mvn exec:exec` command from the `client` module:
 ```shell
-mvn clean package
-mvn exec:exec // Use the default prompt message: Say Hello
-mvn exec:exec -Dprompt="What is 6+6?"
+mvn clean install
+mvn exec:exec -pl client                                   # Default prompt: Say Hello
+mvn exec:exec -pl client -Dprompt="What is 6+6?"
 ```
 and look within your terminal to the response that you got:
 ```shell
-[INFO] --- exec:3.6.3:exec (default-cli) @ acp-client ---
+[INFO] --- exec:3.6.3:exec (default-cli) @ acp-client-cli ---
 11:11:57,492 INFO  [StdioAcpClientTransport] ACP agent starting
 11:11:57,522 INFO  [StdioAcpClientTransport] ACP agent started                                                                                                                                                   
 11:11:58,435 INFO  [AcpAgentCli] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
@@ -54,10 +64,10 @@ Hello
 
 The parameters must be passed to the maven command as such:
 ```shell
-mvn exec:exec \
+mvn exec:exec -pl client \
   -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
 
-mvn exec:exec \
+mvn exec:exec -pl client \
   -Dprovider="anthropic-vertex-ai" \
   -Dmodel="claude-opus-4-6" \
   -DacpAgentBinary="claude-agent-acp" \
@@ -86,7 +96,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=$home/.config/gcloud/application_default_c
 export VERTEX_LOCATION=<google-location>
 export GOOGLE_CLOUD_PROJECT=<google-project>
 
-mvn exec:exec \
+mvn exec:exec -pl client \
   -DacpAgentBinary="opencode" \
   -DacpAgentArgs="acp" \
   -Dprovider="google-vertex-ai" \
@@ -100,7 +110,7 @@ export CLAUDE_ML_REGION=<google-location>
 export CLAUDE_CODE_USE_VERTEX=1
 export ANTHROPIC_VERTEX_PROJECT_ID=<google-project>
 
-mvn exec:exec \
+mvn exec:exec -pl client \
   -DacpAgentBinary="claude-agent-acp" \
   -Dprovider="anthropic-vertex-ai" \
   -Dmodel="claude-opus-4-6"
@@ -109,7 +119,7 @@ mvn exec:exec \
 ### pi acp
 
 ```shell
-mvn exec:exec \
+mvn exec:exec -pl client \
   -DacpAgentBinary="pi-acp" \
   -Dprompt="Say Hello"
 ```
@@ -127,14 +137,14 @@ When an agent needs to perform a sensitive operation (e.g. writing a file, runni
 
 Example:
 ```shell
-mvn exec:exec -DpermissionMode=allow_once -Dprompt="Create a Java HelloWorld class"
+mvn exec:exec -pl client -DpermissionMode=allow_once -Dprompt="Create a Java HelloWorld class"
 ```
 
 ## Logging
 
 The project uses [SLF4J](https://www.slf4j.org/) with [JBoss Log Manager](https://github.com/jboss-logging/jboss-logmanager) as the logging backend. By default, only `INFO`-level messages are shown (connection status, prompt lifecycle). Session update details (thoughts, tool calls, plans, commands, usage) and protocol internals are logged at `DEBUG` or `TRACE` level.
 
-Log levels are configured in `src/main/resources/logging.properties`. You can also override them on the command line.
+Log levels are configured in `client/src/main/resources/logging.properties`. You can also override them on the command line.
 
 ### Log levels
 

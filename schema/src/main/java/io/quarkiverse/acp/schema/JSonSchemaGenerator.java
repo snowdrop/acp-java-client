@@ -29,25 +29,31 @@ import java.util.*;
  * <ul>
  *   <li>{@code -DschemaPath=/schema/acp/v1/schema.json} &mdash; classpath resource path (default: {@code /schema/acp/v1/schema.json})</li>
  *   <li>{@code -DbasePackage=com.example.schema} &mdash; base package; version is appended automatically (default: {@code io.quarkiverse.agentclientprotocol.sdk.spec.schema})</li>
+ *   <li>{@code -DoutputDir=target/generated-sources} &mdash; output root directory for generated files (default: {@code target/generated-sources})</li>
  * </ul>
  *
  * <p>The version is extracted from the schema path: for {@code /schema/acp/v1/schema.json}
  * the version is {@code v1}, producing package {@code io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1}.
  *
- * <p>Run as a standalone program:
+ * <p>Generated files are written to {@code target/generated-sources} by default, so the user
+ * can review them before copying or merging into the main source tree.
+ *
+ * <p>Run as a standalone program (from the {@code schema} module):
  * <pre>{@code
- * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator
- * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator \
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator -pl schema
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator -pl schema \
  *     -DschemaPath=/schema/acp/v2/schema.json
- * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator \
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator -pl schema \
  *     -DschemaPath=/schema/acp/v2/schema.json -DbasePackage=com.example.acp.schema
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator -pl schema \
+ *     -DoutputDir=src/main/java
  * }</pre>
  */
 public class JSonSchemaGenerator {
 
     private static final String DEFAULT_SCHEMA_PATH = "/schema/acp/v1/schema.json";
     private static final String DEFAULT_BASE_PACKAGE = "io.quarkiverse.agentclientprotocol.sdk.spec.schema";
-    private static final Path OUTPUT_DIR = Path.of("src", "main", "java");
+    private static final String DEFAULT_OUTPUT_DIR = "target/generated-sources";
 
     private static String targetPackage;
     private static JsonNode allDefs;
@@ -59,6 +65,7 @@ public class JSonSchemaGenerator {
      * <ul>
      *   <li>{@code -DschemaPath} &mdash; classpath path to the JSON schema</li>
      *   <li>{@code -DbasePackage} &mdash; base Java package (version is appended from the schema path)</li>
+     *   <li>{@code -DoutputDir} &mdash; output root directory (default: {@code target/generated-sources})</li>
      * </ul>
      *
      * @param args unused
@@ -67,6 +74,7 @@ public class JSonSchemaGenerator {
     public static void main(String[] args) throws IOException {
         String schemaPath = System.getProperty("schemaPath", DEFAULT_SCHEMA_PATH);
         String basePackage = System.getProperty("basePackage", DEFAULT_BASE_PACKAGE);
+        Path outputDir = Path.of(System.getProperty("outputDir", DEFAULT_OUTPUT_DIR));
 
         // Derive version from the schema path: /schema/acp/v1/schema.json -> v1
         String version = extractVersion(schemaPath);
@@ -74,6 +82,7 @@ public class JSonSchemaGenerator {
 
         System.out.println("Schema path:    " + schemaPath);
         System.out.println("Target package: " + targetPackage);
+        System.out.println("Output dir:     " + outputDir);
 
         ObjectMapper mapper = new ObjectMapper();
 
@@ -85,7 +94,7 @@ public class JSonSchemaGenerator {
             JsonNode root = mapper.readTree(is);
             allDefs = root.get("$defs");
 
-            Path packageDir = OUTPUT_DIR.resolve(targetPackage.replace('.', '/'));
+            Path packageDir = outputDir.resolve(targetPackage.replace('.', '/'));
             Files.createDirectories(packageDir);
 
             int count = 0;
