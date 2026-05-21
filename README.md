@@ -77,12 +77,39 @@ The required environment variables are automatically checked based on the `-Dpro
 | `anthropic`              | `ANTHROPIC_API_KEY`                                                                                                     | [Anthropic](https://docs.anthropic.com/)                                             |
 | `openai`                 | `OPENAI_API_KEY`                                                                                                        | [OpenAI](https://platform.openai.com/docs/)                                         |
 
-Example with Google Vertex AI:
+### opencode acp and Google Vertex AI provider
+
 ```shell
-export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
-export VERTEX_LOCATION=us-east1
-export GOOGLE_CLOUD_PROJECT=my-project
-mvn exec:exec -Dprovider="google-vertex-ai" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
+export GOOGLE_APPLICATION_CREDENTIALS=$home/.config/gcloud/application_default_credentials.json
+export VERTEX_LOCATION=<google-location>
+export GOOGLE_CLOUD_PROJECT=<google-project>
+
+mvn exec:exec \
+  -DacpAgentBinary="opencode" \
+  -DacpAgentArgs="acp" \
+  -Dprovider="google-vertex-ai" \
+  -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
+```
+
+### claude acp and Google Vertex AI provider
+
+```shell
+export CLAUDE_ML_REGION=<google-location>
+export CLAUDE_CODE_USE_VERTEX=1
+export ANTHROPIC_VERTEX_PROJECT_ID=<google-project>
+
+mvn exec:exec \
+  -DacpAgentBinary="claude-agent-acp" \
+  -Dprovider="anthropic-vertex-ai" \
+  -Dmodel="claude-opus-4-6"
+```
+
+### pi acp
+
+```shell
+mvn exec:exec \
+  -DacpAgentBinary="pi-acp" \
+  -Dprompt="Say Hello to a py user"
 ```
 
 ## Permissions
@@ -114,10 +141,3 @@ Log levels are configured in `src/main/resources/logging.properties`. You can al
 | `INFO` (default) | Connected to agent, sending prompt, stop reason |
 | `DEBUG` | + agent thoughts, tool calls, plans, commands, mode changes, usage, capabilities, session ID |
 | `TRACE` | + raw JSON-RPC messages sent/received by the transport |
-
-### Enable DEBUG for everything
-
-Edit `src/main/resources/logging.properties` and change:
-```properties
-logger.level=DEBUG
-```

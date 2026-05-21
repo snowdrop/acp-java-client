@@ -134,7 +134,7 @@ public class OpenCodeAcp {
             logger.debug("Auth methods: {}", initResponse.authMethods());
 
             // 5. Create a session
-            var session = client.newSession(new NewSessionRequest(".", List.of()));
+            var session = client.newSession(new NewSessionRequest(System.getProperty("user.dir"), List.of()));
             var sessionId = session.sessionId();
             logger.info("Session created: {}", sessionId);
             // 6. Set the model
