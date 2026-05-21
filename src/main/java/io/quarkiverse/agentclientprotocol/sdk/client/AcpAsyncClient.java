@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Mutiny-based asynchronous ACP client.
@@ -60,17 +61,20 @@ public class AcpAsyncClient {
     private final Duration requestTimeout;
     private final Duration promptTimeout;
     private final Consumer<SessionNotification> sessionUpdateConsumer;
+    private final Function<RequestPermissionRequest, RequestPermissionResponse> permissionRequestHandler;
 
     private final AtomicInteger requestIdCounter = new AtomicInteger(0);
     private final ConcurrentHashMap<Integer, CompletableFuture<JsonNode>> pendingRequests = new ConcurrentHashMap<>();
 
     AcpAsyncClient(StdioAcpClientTransport transport, Duration requestTimeout,
-                   Duration promptTimeout, Consumer<SessionNotification> sessionUpdateConsumer) {
+                   Duration promptTimeout, Consumer<SessionNotification> sessionUpdateConsumer,
+                   Function<RequestPermissionRequest, RequestPermissionResponse> permissionRequestHandler) {
         this.transport = transport;
         this.mapper = transport.getMapper();
         this.requestTimeout = requestTimeout;
         this.promptTimeout = promptTimeout;
         this.sessionUpdateConsumer = sessionUpdateConsumer;
+        this.permissionRequestHandler = permissionRequestHandler;
 
         transport.setInboundMessageHandler(this::handleIncoming);
     }
@@ -254,7 +258,13 @@ public class AcpAsyncClient {
      * @param node the raw JSON-RPC message from the agent
      */
     private void handleIncoming(JsonNode node) {
-        // JSON-RPC response
+        // JSON-RPC agent request (has both id and method — agent asking the client)
+        if (node.has("id") && node.has("method")) {
+            handleAgentRequest(node);
+            return;
+        }
+
+        // JSON-RPC response (has id + result/error — response to our request)
         if (node.has("id") && (node.has("result") || node.has("error"))) {
             int id = node.get("id").asInt();
             CompletableFuture<JsonNode> future = pendingRequests.remove(id);
@@ -319,5 +329,72 @@ public class AcpAsyncClient {
         // Unknown update type — return as a Map
         logger.debug("Unknown session update type: {}", updateType);
         return mapper.convertValue(updateNode, Object.class);
+    }
+
+    /**
+     * Handles an agent-originated JSON-RPC request (a message with both {@code id} and {@code method}).
+     * Currently supports {@code session/request_permission}.
+     *
+     * @param node the raw JSON-RPC request from the agent
+     */
+    private void handleAgentRequest(JsonNode node) {
+        String method = node.get("method").asText();
+        JsonNode id = node.get("id");
+        JsonNode paramsNode = node.get("params");
+
+        if ("session/request_permission".equals(method)) {
+            try {
+                var request = mapper.convertValue(paramsNode, RequestPermissionRequest.class);
+                RequestPermissionResponse response;
+                if (permissionRequestHandler != null) {
+                    response = permissionRequestHandler.apply(request);
+                } else {
+                    // Default: auto-accept with the first allow option
+                    String optionId = request.options().stream()
+                            .filter(o -> o.kind() == PermissionOptionKind.ALLOW_ALWAYS
+                                    || o.kind() == PermissionOptionKind.ALLOW_ONCE)
+                            .findFirst()
+                            .map(PermissionOption::optionId)
+                            .orElse(request.options().getFirst().optionId());
+                    response = new RequestPermissionResponse(
+                            new SelectedPermissionOutcome(optionId));
+                    logger.info("[Permission] Auto-accepted: {}", request.toolCall().title());
+                }
+                sendResponse(id, response);
+            } catch (Exception e) {
+                logger.warn("Failed to handle permission request", e);
+                sendErrorResponse(id, -32603, "Internal error: " + e.getMessage());
+            }
+        } else {
+            logger.warn("Unhandled agent request method: {}", method);
+            sendErrorResponse(id, -32601, "Method not found: " + method);
+        }
+    }
+
+    /**
+     * Sends a JSON-RPC 2.0 response back to the agent.
+     */
+    private void sendResponse(JsonNode id, Object result) {
+        ObjectNode responseNode = mapper.createObjectNode();
+        responseNode.put("jsonrpc", "2.0");
+        responseNode.set("id", id);
+        responseNode.set("result", mapper.valueToTree(result));
+        logger.debug("<< response (id={})", id);
+        transport.sendMessage(responseNode).await().indefinitely();
+    }
+
+    /**
+     * Sends a JSON-RPC 2.0 error response back to the agent.
+     */
+    private void sendErrorResponse(JsonNode id, int code, String message) {
+        ObjectNode responseNode = mapper.createObjectNode();
+        responseNode.put("jsonrpc", "2.0");
+        responseNode.set("id", id);
+        ObjectNode errorNode = mapper.createObjectNode();
+        errorNode.put("code", code);
+        errorNode.put("message", message);
+        responseNode.set("error", errorNode);
+        logger.debug("<< error response (id={})", id);
+        transport.sendMessage(responseNode).await().indefinitely();
     }
 }

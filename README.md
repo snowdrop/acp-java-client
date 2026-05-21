@@ -8,7 +8,7 @@ This project is a Java client library for ACP, built with [SmallRye Mutiny](http
 
 - [JDK 21+](https://openjdk.org/)
 - [Apache Maven 3.9+](https://maven.apache.org/)
-- [OpenCode](https://opencode.ai/) (or any ACP-compatible agent)
+- Any ACP-compatible agent: [OpenCode](https://opencode.ai/), [Claude ACP agent](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp), [Pi ACP](https://www.npmjs.com/package/pi-acp)
 
 ## Usage
 
@@ -27,16 +27,25 @@ mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-a
 | Parameter          | Description                                                                | Default                    |
 |--------------------|----------------------------------------------------------------------------|----------------------------|
 | `-Dprompt`         | The prompt text to send to the agent                                       | `Say Hello in 5 languages` |
-| `-Dmodel`          | The model to use (see available models in session config)                   | `opencode/big-pickle`      |
+| `-Dmodel`          | The model to use (see available models in session config)                  | `opencode/big-pickle`      |
 | `-Dprovider`       | The provider name for env variable checks (see below)                      | `opencode-zen`             |
-| `-Dagent`          | The agent command (binary) to launch                                       | `opencode`                 |
-| `-DagentArgs`      | Comma-separated arguments passed to the agent command                      | `acp`                      |
-| `-DrequestTimeout` | Timeout in seconds for short-lived RPC calls (initialize, session, config)  | `30`                       |
-| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout              | no timeout                 |
+| `-DacpAgentBinary` | The agent command (binary) to launch                                       | `opencode`                 |
+| `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command                      | `acp`                      |
+| `-DrequestTimeout` | Timeout in seconds for short-lived RPC calls (initialize, session, config) | `30`                       |
+| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout             | no timeout                 |
+| `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`                   | `INFO`                     |
+| `-DpermissionMode` | How to respond to agent permission requests (see below)                    | `allow_always`             |
 
-Example with prompt:
+Examples:
 ```shell
-mvn exec:exec -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
+mvn exec:exec \
+  -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
+
+mvn exec:exec \
+  -Dprovider="anthropic-vertex-ai" \
+  -Dmodel="claude-opus-4-6" \
+  -DacpAgentBinary="claude-agent-acp" \
+  -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
 ```
 and look within your terminal to the response that you got:
 ```shell
@@ -83,6 +92,22 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_crede
 export VERTEX_LOCATION=us-east1
 export GOOGLE_CLOUD_PROJECT=my-project
 mvn exec:exec -Dprovider="google-vertex-ai" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
+```
+
+## Permissions
+
+When an agent needs to perform a sensitive operation (e.g. writing a file, running a command), it sends a `session/request_permission` request. The client responds automatically based on the `-DpermissionMode` value:
+
+| Mode           | Behavior                                            |
+|----------------|-----------------------------------------------------|
+| `allow_always` | Accept and remember the choice (default)            |
+| `allow_once`   | Accept only this time                               |
+| `reject_once`  | Reject only this time                               |
+| `reject_always`| Reject and remember the choice                      |
+
+Example:
+```shell
+mvn exec:exec -DpermissionMode=allow_once -Dprompt="Create a Java HelloWorld class"
 ```
 
 ## Logging

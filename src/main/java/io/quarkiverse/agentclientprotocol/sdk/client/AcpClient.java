@@ -1,10 +1,13 @@
 package io.quarkiverse.agentclientprotocol.sdk.client;
 
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
+import io.quarkiverse.agentclientprotocol.sdk.spec.schema.RequestPermissionRequest;
+import io.quarkiverse.agentclientprotocol.sdk.spec.schema.RequestPermissionResponse;
 import io.quarkiverse.agentclientprotocol.sdk.spec.schema.SessionNotification;
 
 import java.time.Duration;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Factory for creating ACP clients.
@@ -42,6 +45,7 @@ public final class AcpClient {
         private Duration requestTimeout = Duration.ofSeconds(30);
         private Duration promptTimeout;
         private Consumer<SessionNotification> sessionUpdateConsumer;
+        private Function<RequestPermissionRequest, RequestPermissionResponse> permissionRequestHandler;
 
         private SyncBuilder(StdioAcpClientTransport transport) {
             this.transport = transport;
@@ -82,12 +86,24 @@ public final class AcpClient {
         }
 
         /**
+         * Sets the handler for permission requests from the agent.
+         * If not set, permissions are auto-accepted with the first allow option.
+         *
+         * @param handler function that receives the permission request and returns a response
+         * @return this builder
+         */
+        public SyncBuilder permissionRequestHandler(Function<RequestPermissionRequest, RequestPermissionResponse> handler) {
+            this.permissionRequestHandler = handler;
+            return this;
+        }
+
+        /**
          * Builds and connects the synchronous client.
          *
          * @return a connected {@link AcpSyncClient}
          */
         public AcpSyncClient build() {
-            AcpAsyncClient async = new AcpAsyncClient(transport, requestTimeout, promptTimeout, sessionUpdateConsumer);
+            AcpAsyncClient async = new AcpAsyncClient(transport, requestTimeout, promptTimeout, sessionUpdateConsumer, permissionRequestHandler);
             return new AcpSyncClient(async);
         }
     }
@@ -98,6 +114,7 @@ public final class AcpClient {
         private Duration requestTimeout = Duration.ofSeconds(30);
         private Duration promptTimeout;
         private Consumer<SessionNotification> sessionUpdateConsumer;
+        private Function<RequestPermissionRequest, RequestPermissionResponse> permissionRequestHandler;
 
         private AsyncBuilder(StdioAcpClientTransport transport) {
             this.transport = transport;
@@ -121,13 +138,19 @@ public final class AcpClient {
             return this;
         }
 
+        /** @see SyncBuilder#permissionRequestHandler(Function) */
+        public AsyncBuilder permissionRequestHandler(Function<RequestPermissionRequest, RequestPermissionResponse> handler) {
+            this.permissionRequestHandler = handler;
+            return this;
+        }
+
         /**
          * Builds the asynchronous client. Call {@link AcpAsyncClient#connect()} to start it.
          *
          * @return an {@link AcpAsyncClient} (not yet connected)
          */
         public AcpAsyncClient build() {
-            return new AcpAsyncClient(transport, requestTimeout, promptTimeout, sessionUpdateConsumer);
+            return new AcpAsyncClient(transport, requestTimeout, promptTimeout, sessionUpdateConsumer, permissionRequestHandler);
         }
     }
 }

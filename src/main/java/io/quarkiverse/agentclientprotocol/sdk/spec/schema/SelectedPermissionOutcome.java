@@ -8,8 +8,9 @@ import java.util.Map;
  */
 public record SelectedPermissionOutcome(
         @JsonProperty("_meta") Map<String, Object> meta,
+        @JsonProperty("outcome") String outcome,
         @JsonProperty("optionId") String optionId) {
     public SelectedPermissionOutcome(String optionId) {
-        this(null, optionId);
+        this(null, "selected", optionId);
     }
 }
