@@ -106,6 +106,16 @@ public class AcpSyncClient implements AutoCloseable {
     }
 
     /**
+     * Sets a session configuration option, e.g. the model (blocking).
+     *
+     * @param request the config option ID, value, and session ID
+     * @return the updated config options
+     */
+    public SetSessionConfigOptionResponse setConfigOption(SetSessionConfigOptionRequest request) {
+        return delegate.setConfigOption(request).await().indefinitely();
+    }
+
+    /**
      * Sends a cancellation notification for the current prompt turn (blocking).
      *
      * @param notification the session ID to cancel

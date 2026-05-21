@@ -58,16 +58,18 @@ public class AcpAsyncClient {
     private final StdioAcpClientTransport transport;
     private final ObjectMapper mapper;
     private final Duration requestTimeout;
+    private final Duration promptTimeout;
     private final Consumer<SessionNotification> sessionUpdateConsumer;
 
     private final AtomicInteger requestIdCounter = new AtomicInteger(0);
     private final ConcurrentHashMap<Integer, CompletableFuture<JsonNode>> pendingRequests = new ConcurrentHashMap<>();
 
     AcpAsyncClient(StdioAcpClientTransport transport, Duration requestTimeout,
-                   Consumer<SessionNotification> sessionUpdateConsumer) {
+                   Duration promptTimeout, Consumer<SessionNotification> sessionUpdateConsumer) {
         this.transport = transport;
         this.mapper = transport.getMapper();
         this.requestTimeout = requestTimeout;
+        this.promptTimeout = promptTimeout;
         this.sessionUpdateConsumer = sessionUpdateConsumer;
 
         transport.setInboundMessageHandler(this::handleIncoming);
@@ -140,8 +142,21 @@ public class AcpAsyncClient {
      * @return a {@link Uni} emitting the stop reason when the agent finishes
      */
     public Uni<PromptResponse> prompt(PromptRequest request) {
-        return sendRequest("session/prompt", request)
-                .map(result -> mapper.convertValue(result, PromptResponse.class));
+        Uni<JsonNode> uni = (promptTimeout != null)
+                ? sendRequest("session/prompt", request, promptTimeout)
+                : sendRequestNoTimeout("session/prompt", request);
+        return uni.map(result -> mapper.convertValue(result, PromptResponse.class));
+    }
+
+    /**
+     * Sets a session configuration option (e.g. the model).
+     *
+     * @param request the config option ID, value, and session ID
+     * @return a {@link Uni} emitting the updated config options
+     */
+    public Uni<SetSessionConfigOptionResponse> setConfigOption(SetSessionConfigOptionRequest request) {
+        return sendRequest("session/set_config_option", request)
+                .map(result -> mapper.convertValue(result, SetSessionConfigOptionResponse.class));
     }
 
     /**
@@ -176,11 +191,32 @@ public class AcpAsyncClient {
      * @return a {@link Uni} emitting the {@code result} node from the response
      */
     private Uni<JsonNode> sendRequest(String method, Object params) {
+        return sendRequest(method, params, requestTimeout);
+    }
+
+    private Uni<JsonNode> sendRequest(String method, Object params, Duration timeout) {
+        Uni<JsonNode> uni = sendRequestNoTimeout(method, params);
+        if (timeout != null) {
+            int id = requestIdCounter.get(); // last assigned id
+            uni = uni.ifNoItem().after(timeout)
+                    .failWith(() -> {
+                        pendingRequests.remove(id);
+                        return new RuntimeException("Request timeout for " + method + " (id=" + id + ")");
+                    });
+        }
+        return uni;
+    }
+
+    /**
+     * Sends a JSON-RPC 2.0 request without a timeout.
+     * Used for long-running operations like prompts where the agent streams updates
+     * while working and the response arrives only when the agent is done.
+     */
+    private Uni<JsonNode> sendRequestNoTimeout(String method, Object params) {
         int id = requestIdCounter.incrementAndGet();
         CompletableFuture<JsonNode> future = new CompletableFuture<>();
         pendingRequests.put(id, future);
 
-        // Build JSON-RPC 2.0 envelope (ClientRequest lacks the jsonrpc field)
         ObjectNode requestNode = mapper.createObjectNode();
         requestNode.put("jsonrpc", "2.0");
         requestNode.put("id", id);
@@ -190,12 +226,7 @@ public class AcpAsyncClient {
         logger.debug(">> {} (id={})", method, id);
 
         return transport.sendMessage(requestNode)
-                .chain(() -> Uni.createFrom().completionStage(future))
-                .ifNoItem().after(requestTimeout)
-                .failWith(() -> {
-                    pendingRequests.remove(id);
-                    return new RuntimeException("Request timeout for " + method + " (id=" + id + ")");
-                });
+                .chain(() -> Uni.createFrom().completionStage(future));
     }
 
     /**

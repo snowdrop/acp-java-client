@@ -40,6 +40,7 @@ public final class AcpClient {
     public static class SyncBuilder {
         private final StdioAcpClientTransport transport;
         private Duration requestTimeout = Duration.ofSeconds(30);
+        private Duration promptTimeout;
         private Consumer<SessionNotification> sessionUpdateConsumer;
 
         private SyncBuilder(StdioAcpClientTransport transport) {
@@ -54,6 +55,18 @@ public final class AcpClient {
          */
         public SyncBuilder requestTimeout(Duration timeout) {
             this.requestTimeout = timeout;
+            return this;
+        }
+
+        /**
+         * Sets the timeout for prompt requests. Defaults to no timeout since prompts
+         * can run for extended periods while the agent processes tool calls.
+         *
+         * @param timeout the prompt timeout duration, or {@code null} for no timeout
+         * @return this builder
+         */
+        public SyncBuilder promptTimeout(Duration timeout) {
+            this.promptTimeout = timeout;
             return this;
         }
 
@@ -74,7 +87,7 @@ public final class AcpClient {
          * @return a connected {@link AcpSyncClient}
          */
         public AcpSyncClient build() {
-            AcpAsyncClient async = new AcpAsyncClient(transport, requestTimeout, sessionUpdateConsumer);
+            AcpAsyncClient async = new AcpAsyncClient(transport, requestTimeout, promptTimeout, sessionUpdateConsumer);
             return new AcpSyncClient(async);
         }
     }
@@ -83,6 +96,7 @@ public final class AcpClient {
     public static class AsyncBuilder {
         private final StdioAcpClientTransport transport;
         private Duration requestTimeout = Duration.ofSeconds(30);
+        private Duration promptTimeout;
         private Consumer<SessionNotification> sessionUpdateConsumer;
 
         private AsyncBuilder(StdioAcpClientTransport transport) {
@@ -92,6 +106,12 @@ public final class AcpClient {
         /** @see SyncBuilder#requestTimeout(Duration) */
         public AsyncBuilder requestTimeout(Duration timeout) {
             this.requestTimeout = timeout;
+            return this;
+        }
+
+        /** @see SyncBuilder#promptTimeout(Duration) */
+        public AsyncBuilder promptTimeout(Duration timeout) {
+            this.promptTimeout = timeout;
             return this;
         }
 
@@ -107,7 +127,7 @@ public final class AcpClient {
          * @return an {@link AcpAsyncClient} (not yet connected)
          */
         public AcpAsyncClient build() {
-            return new AcpAsyncClient(transport, requestTimeout, sessionUpdateConsumer);
+            return new AcpAsyncClient(transport, requestTimeout, promptTimeout, sessionUpdateConsumer);
         }
     }
 }

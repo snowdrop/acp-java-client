@@ -8,6 +8,7 @@ import io.quarkiverse.agentclientprotocol.sdk.spec.schema.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,26 @@ public class OpenCodeAcp {
     /** Default prompt used when no arguments are provided. */
     private static final String DEFAULT_PROMPT = "Say Hello in 5 languages";
 
+    /** Default model used when no {@code -Dmodel=...} is provided. */
+    /*
+      ┌─────────────────────────────────┬─────────────────────────────────────┐
+      │              Value              │                Name                 │
+      ├─────────────────────────────────┼─────────────────────────────────────┤
+      │ opencode/big-pickle             │ OpenCode Zen/Big Pickle             │
+      ├─────────────────────────────────┼─────────────────────────────────────┤
+      │ opencode/qwen3.6-plus-free      │ OpenCode Zen/Qwen3.6 Plus Free      │
+      ├─────────────────────────────────┼─────────────────────────────────────┤
+      │ opencode/nemotron-3-super-free  │ OpenCode Zen/Nemotron 3 Super Free  │
+      ├─────────────────────────────────┼─────────────────────────────────────┤
+      │ opencode/minimax-m2.5-free      │ OpenCode Zen/MiniMax M2.5 Free      │
+      ├─────────────────────────────────┼─────────────────────────────────────┤
+      │ opencode/deepseek-v4-flash-free │ OpenCode Zen/DeepSeek V4 Flash Free │
+      └─────────────────────────────────┴─────────────────────────────────────┘
+       Using as provider: Google Vertex AI
+       model: google-vertex-anthropic/claude-opus-4-6@default
+     */
+    private static final String DEFAULT_MODEL = "opencode/big-pickle";
+
     /**
      * Entry point. Connects to the OpenCode ACP agent, sends a prompt, and prints
      * streamed session updates.
@@ -45,6 +66,22 @@ public class OpenCodeAcp {
         String prompt = (sysPropPrompt != null && !sysPropPrompt.isEmpty())
                 ? sysPropPrompt
                 : (args.length > 0 ? String.join(" ", args) : DEFAULT_PROMPT);
+
+        String sysPropModel = System.getProperty("model");
+        String model = (sysPropModel != null && !sysPropModel.isEmpty())
+                ? sysPropModel : DEFAULT_MODEL;
+
+        String sysPropRequestTimeout = System.getProperty("requestTimeout");
+        Duration requestTimeout = (sysPropRequestTimeout != null && !sysPropRequestTimeout.isEmpty())
+                ? Duration.ofSeconds(Long.parseLong(sysPropRequestTimeout)) : Duration.ofSeconds(30);
+
+        String sysPropPromptTimeout = System.getProperty("promptTimeout");
+        Duration promptTimeout = (sysPropPromptTimeout != null && !sysPropPromptTimeout.isEmpty())
+                ? Duration.ofSeconds(Long.parseLong(sysPropPromptTimeout)) : null;
+
+        // 0. Check for required API key before starting
+        checkAIApiKey();
+
         // 1. Configure agent parameters
         var params = AgentParameters.builder("opencode")
                 .arg("acp")
@@ -55,6 +92,8 @@ public class OpenCodeAcp {
 
         // 3. Build sync client with session update consumer
         try (AcpSyncClient client = AcpClient.sync(transport)
+                .requestTimeout(requestTimeout)
+                .promptTimeout(promptTimeout)
                 .sessionUpdateConsumer(notification -> {
                     String updateType = notification.meta() != null
                             ? (String) notification.meta().get("sessionUpdate") : null;
@@ -77,14 +116,17 @@ public class OpenCodeAcp {
             var session = client.newSession(new NewSessionRequest(".", List.of()));
             var sessionId = session.sessionId();
             logger.info("Session created: {}", sessionId);
-            if (session.configOptions() != null) {
-                session.configOptions().stream()
+            // 6. Set the model
+            var configResponse = client.setConfigOption(
+                    new SetSessionConfigOptionRequest("model", sessionId, model));
+            if (configResponse.configOptions() != null) {
+                configResponse.configOptions().stream()
                         .filter(opt -> "model".equalsIgnoreCase(opt.id()))
                         .findFirst()
-                        .ifPresent(opt -> logger.info("Model: {}", opt.name()));
+                        .ifPresent(opt -> logger.info("Model: {}", opt.currentValue()));
             }
 
-            // 6. Send a prompt
+            // 7. Send a prompt
             logger.info("Sending prompt: {}", prompt);
             System.out.println("Here is the AI response:");
             var response = client.prompt(new PromptRequest(
@@ -117,24 +159,24 @@ public class OpenCodeAcp {
         switch (update) {
             case ContentChunk chunk -> {
                 if ("agent_thought_chunk".equals(updateType)) {
-                    logger.debug("[Thought] {}", extractText(chunk.content()));
+                    logger.info("[Thought] {}", extractText(chunk.content()));
                 } else {
                     // Agent message text is always printed (primary output)
                     System.out.print(extractText(chunk.content()));
                 }
             }
             case Plan plan -> {
-                logger.debug("[Plan] {} steps:", plan.entries().size());
-                plan.entries().forEach(e -> logger.debug("  - {} [{}]", e.content(), e.status()));
+                logger.info("[Plan] {} steps:", plan.entries().size());
+                plan.entries().forEach(e -> logger.info("  - {} [{}]", e.content(), e.status()));
             }
             case ToolCall tool -> {
-                logger.debug("[ToolCall] {} ({}) - {}", tool.title(), tool.kind(), tool.status());
+                logger.info("[ToolCall] {} ({}) - {}", tool.title(), tool.kind(), tool.status());
             }
             case ToolCallUpdate toolUpdate -> {
-                logger.debug("[ToolUpdate] {} - {}", toolUpdate.title(), toolUpdate.status());
+                logger.info("[ToolUpdate] {} - {}", toolUpdate.title(), toolUpdate.status());
             }
             case AvailableCommandsUpdate commands -> {
-                logger.debug("[Commands] Available:");
+                logger.info("[Commands] Available:");
                 commands.availableCommands()
                         .forEach(c -> logger.debug("  /{} - {}", c.name(), c.description()));
             }
@@ -143,16 +185,16 @@ public class OpenCodeAcp {
                     configUpdate.configOptions().stream()
                             .filter(opt -> "model".equalsIgnoreCase(opt.id()))
                             .findFirst()
-                            .ifPresent(opt -> logger.info("Model changed: {}", opt.name()));
+                            .ifPresent(opt -> logger.info("Model changed: {}", opt.currentValue()));
                 }
-                logger.debug("[Config] {}", configUpdate.configOptions());
+                logger.info("[Config] {}", configUpdate.configOptions());
             }
-            case CurrentModeUpdate mode -> logger.debug("[Mode] {}", mode.currentModeId());
+            case CurrentModeUpdate mode -> logger.info("[Mode] {}", mode.currentModeId());
             default -> {
                 if ("usage_update".equals(updateType) && update instanceof Map<?,?> map) {
-                    logger.debug("[Usage] used={} size={} cost={}", map.get("used"), map.get("size"), map.get("cost"));
+                    logger.info("[Usage] used={} size={} cost={}", map.get("used"), map.get("size"), map.get("cost"));
                 } else {
-                    logger.debug("[Update] {}: {}", updateType, update);
+                    logger.info("[Update] {}: {}", updateType, update);
                 }
             }
         }
@@ -171,5 +213,36 @@ public class OpenCodeAcp {
             return text != null ? text.toString() : content.toString();
         }
         return content != null ? content.toString() : "";
+    }
+
+    /**
+     * Verify AI_API_KEY is set before attempting to connect.
+     */
+    private static void checkAIApiKey() {
+
+        String apiKey = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
+        String location = System.getenv("VERTEX_LOCATION");
+        String project = System.getenv("GOOGLE_CLOUD_PROJECT");
+
+        if (apiKey == null || apiKey.isBlank()) {
+            System.err.println("""
+                    ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.
+                    """);
+            System.exit(1);
+        }
+
+        if (location == null || location.isBlank()) {
+            System.err.println("""
+                    ERROR: VERTEX_LOCATION environment variable is not set.
+                    """);
+            System.exit(1);
+        }
+
+        if (project == null || project.isBlank()) {
+            System.err.println("""
+                    ERROR: GOOGLE_CLOUD_PROJECT environment variable is not set.
+                    """);
+            System.exit(1);
+        }
     }
 }

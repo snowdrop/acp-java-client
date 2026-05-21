@@ -12,13 +12,28 @@ This project is a Java client library for ACP, built with [SmallRye Mutiny](http
 
 ## Usage
 
-Execute the `mvn exec:exec` command: 
+Execute one of these commands to run some prompts: 
 ```shell
 mvn clean package
 mvn exec:exec
-mvn exec:exec -Dprompt="What is 66+1000?"
+mvn exec:exec -Dprompt="What is 6+6?"
+mvn exec:exec -Dprompt="What is 6+6?" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
 mvn exec:exec -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
-mvn exec:exec -Dprompt="Create a Java HelloWorld class"
+mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
+```
+
+### Parameters
+
+| Parameter          | Description                                                                | Default                    |
+|--------------------|----------------------------------------------------------------------------|----------------------------|
+| `-Dprompt`         | The prompt text to send to the agent                                       | `Say Hello in 5 languages` |
+| `-Dmodel`          | The model to use (see available models in session config)                  | `opencode/big-pickle`      |
+| `-DrequestTimeout` | Timeout in seconds for short-lived RPC calls (initialize, session, config) | `30`                       |
+| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout             | no timeout                 |
+
+Example with timeouts:
+```shell
+mvn exec:exec -Dprompt="Create a Java HelloWorld class" -DrequestTimeout=15 -DpromptTimeout=300
 ```
 and look within your terminal to the response that you got:
 ```shell
@@ -43,6 +58,18 @@ Created `HELLO.md` at the project root with 5 hello messages as instructed.
 Done! Stop reason: END_TURN
 19:00:56,168 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)
 [INFO] ------------------------------------------------------------------------
+```
+>[NOTE]
+> By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
+
+## Google Vertex AI
+
+To access Claude Anthropic, Sonnet, etc model gardens deployed on Google Cloud Platform with Vertex AI, set the following env variables of the [provider](https://opencode.ai/docs/providers/#google-vertex-ai) before to launch the ACP client using opencode
+
+```shell
+GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
+VERTEX_LOCATION=<location>
+GOOGLE_CLOUD_PROJECT=<google-project>
 ```
 
 ## Logging
