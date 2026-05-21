@@ -1,8 +1,8 @@
 package io.quarkiverse.agentclientprotocol.sdk.client;
 
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
-import io.quarkiverse.agentclientprotocol.sdk.spec.schema.*;
-import io.quarkiverse.agentclientprotocol.sdk.spec.schema.Error;
+import io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1.*;
+import io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1.Error;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

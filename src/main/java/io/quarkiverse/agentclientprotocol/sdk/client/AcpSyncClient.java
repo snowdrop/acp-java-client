@@ -1,6 +1,6 @@
 package io.quarkiverse.agentclientprotocol.sdk.client;
 
-import io.quarkiverse.agentclientprotocol.sdk.spec.schema.*;
+import io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

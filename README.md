@@ -4,6 +4,8 @@ The [Agent Client Protocol](https://agentclientprotocol.com/) (ACP) is an open s
 
 This project is a Java client library for ACP, built with [SmallRye Mutiny](https://smallrye.io/smallrye-mutiny/) for reactive/async operations and [Jackson](https://github.com/FasterXML/jackson) for JSON processing. It provides both synchronous and asynchronous APIs to interact with any ACP-compatible agent (e.g. [OpenCode](https://opencode.ai/)).
 
+The client implements the [ACP Schema Specification v1](https://agentclientprotocol.com/specification). The JSON schema definition is bundled at `src/main/resources/schema/acp/v1/schema.json` and Java records are generated from it using `JSonSchemaGenerator` (a custom code generator included in this project). See [CONTRIBUTING.md](CONTRIBUTING.md) for details on regenerating schema classes.
+
 ## Prerequisites
 
 - [JDK 21+](https://openjdk.org/)
@@ -23,15 +25,15 @@ and look within your terminal to the response that you got:
 [INFO] --- exec:3.6.3:exec (default-cli) @ acp-client ---
 11:11:57,492 INFO  [StdioAcpClientTransport] ACP agent starting
 11:11:57,522 INFO  [StdioAcpClientTransport] ACP agent started                                                                                                                                                   
-11:11:58,435 INFO  [OpenCodeAcp] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
-11:11:58,613 INFO  [OpenCodeAcp] Session created: ses_1b631ae8bffegMSoAYKMCI6cUc                                                                                                                                 
-11:11:58,619 INFO  [OpenCodeAcp] [Commands] Available:                                                                                                                                                           
-11:11:58,622 INFO  [OpenCodeAcp] Model: opencode/big-pickle                                                                                                                                                      
-11:11:58,623 INFO  [OpenCodeAcp] Sending prompt: Say Hello                                                                                                                                                       
+11:11:58,435 INFO  [AcpAgentCli] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
+11:11:58,613 INFO  [AcpAgentCli] Session created: ses_1b631ae8bffegMSoAYKMCI6cUc                                                                                                                                 
+11:11:58,619 INFO  [AcpAgentCli] [Commands] Available:                                                                                                                                                           
+11:11:58,622 INFO  [AcpAgentCli] Model: opencode/big-pickle                                                                                                                                                      
+11:11:58,623 INFO  [AcpAgentCli] Sending prompt: Say Hello                                                                                                                                                       
 Here is the AI response:                                                                                                                                                                                         
 Hello
-11:12:00,661 INFO  [OpenCodeAcp] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}
-11:12:00,665 INFO  [OpenCodeAcp] Done! Stop reason: END_TURN                                                                                                                                                     
+11:12:00,661 INFO  [AcpAgentCli] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}
+11:12:00,665 INFO  [AcpAgentCli] Done! Stop reason: END_TURN                                                                                                                                                     
 11:12:00,676 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)                                                                                                                           
 [INFO] ------------------------------------------------------------------------ 
 ```

@@ -32,7 +32,7 @@ import java.util.*;
  */
 public class JSonSchemaGenerator {
 
-    private static final String PACKAGE = "io.quarkiverse.agentclientprotocol.sdk.spec.schema";
+    private static final String PACKAGE = "io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1";
     private static final Path OUTPUT_DIR = Path.of("src", "main", "java");
 
     private static JsonNode allDefs;
