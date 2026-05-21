@@ -8,7 +8,7 @@ This project is a Java client library for ACP, built with [SmallRye Mutiny](http
 
 - [JDK 21+](https://openjdk.org/)
 - [Apache Maven 3.9+](https://maven.apache.org/)
-- Any ACP-compatible agent: [OpenCode](https://opencode.ai/docs/acp/), [Claude ACP agent](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp), [Pi ACP](https://www.npmjs.com/package/pi-acp)
+- Any ACP-compatible agent: [OpenCode ACP](https://opencode.ai/docs/acp/), [Claude ACP agent](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp), [Pi ACP](https://www.npmjs.com/package/pi-acp)
 
 ## Usage
 
