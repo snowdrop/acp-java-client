@@ -27,9 +27,12 @@ mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-a
 | Parameter          | Description                                                                | Default                    |
 |--------------------|----------------------------------------------------------------------------|----------------------------|
 | `-Dprompt`         | The prompt text to send to the agent                                       | `Say Hello in 5 languages` |
-| `-Dmodel`          | The model to use (see available models in session config)                  | `opencode/big-pickle`      |
-| `-DrequestTimeout` | Timeout in seconds for short-lived RPC calls (initialize, session, config) | `30`                       |
-| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout             | no timeout                 |
+| `-Dmodel`          | The model to use (see available models in session config)                   | `opencode/big-pickle`      |
+| `-Dprovider`       | The provider name for env variable checks (see below)                      | `opencode-zen`             |
+| `-Dagent`          | The agent command (binary) to launch                                       | `opencode`                 |
+| `-DagentArgs`      | Comma-separated arguments passed to the agent command                      | `acp`                      |
+| `-DrequestTimeout` | Timeout in seconds for short-lived RPC calls (initialize, session, config)  | `30`                       |
+| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout              | no timeout                 |
 
 Example with prompt:
 ```shell
@@ -62,14 +65,24 @@ Done! Stop reason: END_TURN
 >[NOTE]
 > By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
 
-## Google Vertex AI
+## Providers
 
-To access Claude Anthropic, Sonnet, etc model gardens deployed on Google Cloud Platform with Vertex AI, set the following env variables of the [provider](https://opencode.ai/docs/providers/#google-vertex-ai) before to launch the ACP client using opencode
+The required environment variables are automatically checked based on the `-Dprovider` value. The client will exit with an error if any are missing.
 
+| Provider (`-Dprovider`)  | Environment variables                                                                                                   | Documentation                                                                        |
+|--------------------------|-------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| `opencode-zen` (default) | none                                                                                                                    | [OpenCode Zen](https://opencode.ai/docs/zen/)                                       |
+| `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_LOCATION`, `GOOGLE_CLOUD_PROJECT`                                             | [Google Vertex AI](https://opencode.ai/docs/providers/#google-vertex-ai)             |
+| `anthropic-vertex-ai`    | `ANTHROPIC_VERTEX_PROJECT_ID`, `ANTHROPIC_MODEL`, `CLAUDE_CODE_USE_VERTEX`, `CLOUD_ML_REGION`                           | [Anthropic Vertex AI](https://docs.anthropic.com/en/docs/build-with-claude/vertex-ai)|
+| `anthropic`              | `ANTHROPIC_API_KEY`                                                                                                     | [Anthropic](https://docs.anthropic.com/)                                             |
+| `openai`                 | `OPENAI_API_KEY`                                                                                                        | [OpenAI](https://platform.openai.com/docs/)                                         |
+
+Example with Google Vertex AI:
 ```shell
-GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
-VERTEX_LOCATION=<location>
-GOOGLE_CLOUD_PROJECT=<google-project>
+export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
+export VERTEX_LOCATION=us-east1
+export GOOGLE_CLOUD_PROJECT=my-project
+mvn exec:exec -Dprovider="google-vertex-ai" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
 ```
 
 ## Logging

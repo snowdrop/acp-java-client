@@ -24,6 +24,9 @@
 
         <prompt></prompt>
         <model></model>
+        <provider></provider>
+        <agent></agent>
+        <agentArgs></agentArgs>
         <requestTimeout></requestTimeout>
         <promptTimeout></promptTimeout>
 
@@ -95,6 +98,9 @@
                         <argument>-Dlogging.configuration=file:${project.basedir}/src/main/resources/logging.properties</argument>
                         <argument>-Dprompt=${prompt}</argument>
                         <argument>-Dmodel=${model}</argument>
+                        <argument>-Dprovider=${provider}</argument>
+                        <argument>-Dagent=${agent}</argument>
+                        <argument>-DagentArgs=${agentArgs}</argument>
                         <argument>-DrequestTimeout=${requestTimeout}</argument>
                         <argument>-DpromptTimeout=${promptTimeout}</argument>
                         <argument>-classpath</argument>

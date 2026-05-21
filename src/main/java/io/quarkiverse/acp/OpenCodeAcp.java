@@ -79,13 +79,22 @@ public class OpenCodeAcp {
         Duration promptTimeout = (sysPropPromptTimeout != null && !sysPropPromptTimeout.isEmpty())
                 ? Duration.ofSeconds(Long.parseLong(sysPropPromptTimeout)) : null;
 
-        // 0. Check for required API key before starting
-        checkAIApiKey();
+        String agent = System.getProperty("agent", "opencode");
+        String agentArgs = System.getProperty("agentArgs", "acp");
+        String provider = System.getProperty("provider", "opencode-zen");
+
+        // 0. Check for required env variables based on the provider
+        checkProviderEnv(provider);
 
         // 1. Configure agent parameters
-        var params = AgentParameters.builder("opencode")
-                .arg("acp")
-                .build();
+        var builder = AgentParameters.builder(agent);
+        for (String a : agentArgs.split(",")) {
+            String trimmed = a.trim();
+            if (!trimmed.isEmpty()) {
+                builder.arg(trimmed);
+            }
+        }
+        var params = builder.build();
 
         // 2. Create transport
         var transport = new StdioAcpClientTransport(params);
@@ -218,30 +227,45 @@ public class OpenCodeAcp {
     /**
      * Verify AI_API_KEY is set before attempting to connect.
      */
-    private static void checkAIApiKey() {
-
-        String apiKey = System.getenv("GOOGLE_APPLICATION_CREDENTIALS");
-        String location = System.getenv("VERTEX_LOCATION");
-        String project = System.getenv("GOOGLE_CLOUD_PROJECT");
-
-        if (apiKey == null || apiKey.isBlank()) {
-            System.err.println("""
-                    ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.
-                    """);
-            System.exit(1);
+    /**
+     * Checks that the required environment variables are set for the given provider.
+     * Exits with an error if any are missing.
+     *
+     * <p>Supported providers:
+     * <ul>
+     *   <li>{@code opencode-zen} &rarr; OpenCode Zen (no env vars required)</li>
+     *   <li>{@code google-vertex-ai} &rarr; Google Vertex AI</li>
+     *   <li>{@code anthropic-vertex-ai} &rarr; Anthropic via Vertex AI</li>
+     *   <li>{@code anthropic} &rarr; Anthropic API</li>
+     *   <li>{@code openai} &rarr; OpenAI API</li>
+     * </ul>
+     *
+     * @param provider the provider name
+     */
+    private static void checkProviderEnv(String provider) {
+        switch (provider) {
+            case "google-vertex-ai" -> {
+                requireEnv("GOOGLE_APPLICATION_CREDENTIALS", "Google Vertex AI");
+                requireEnv("VERTEX_LOCATION", "Google Vertex AI");
+                requireEnv("GOOGLE_CLOUD_PROJECT", "Google Vertex AI");
+            }
+            case "anthropic-vertex-ai" -> {
+                requireEnv("ANTHROPIC_VERTEX_PROJECT_ID", "Anthropic Vertex AI");
+                requireEnv("ANTHROPIC_MODEL", "Anthropic Vertex AI");
+                requireEnv("CLAUDE_CODE_USE_VERTEX", "Anthropic Vertex AI");
+                requireEnv("CLOUD_ML_REGION", "Anthropic Vertex AI");
+            }
+            case "anthropic" -> requireEnv("ANTHROPIC_API_KEY", "Anthropic");
+            case "openai" -> requireEnv("OPENAI_API_KEY", "OpenAI");
+            case "opencode-zen" -> { /* no env vars required */ }
+            default -> logger.warn("Unknown provider '{}', skipping env variable checks", provider);
         }
+    }
 
-        if (location == null || location.isBlank()) {
-            System.err.println("""
-                    ERROR: VERTEX_LOCATION environment variable is not set.
-                    """);
-            System.exit(1);
-        }
-
-        if (project == null || project.isBlank()) {
-            System.err.println("""
-                    ERROR: GOOGLE_CLOUD_PROJECT environment variable is not set.
-                    """);
+    private static void requireEnv(String varName, String provider) {
+        String value = System.getenv(varName);
+        if (value == null || value.isBlank()) {
+            System.err.println("ERROR: " + varName + " environment variable is not set (required for " + provider + " provider).");
             System.exit(1);
         }
     }
