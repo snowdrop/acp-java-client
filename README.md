@@ -38,17 +38,17 @@ Hello
 
 ### Parameters
 
-| Parameter          | Description                                                    | Default               |
-|--------------------|----------------------------------------------------------------|-----------------------|
-| `-Dprompt`         | The prompt text to send to the agent                           | `Say Hello`           |
-| `-Dprovider`       | The provider name for env variable checks (see below)          | `opencode-zen`        |
-| `-Dmodel`          | The model to use (see available models in session config)      | `opencode/big-pickle` |
-| `-DacpAgentBinary` | The agent command (binary) to launch                           | `opencode`            |
-| `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command          | `acp`                 |
-| `-DrequestTimeout` | Timeout in seconds for steps: initialize, create session, etc  | `30`                  |
-| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout | no timeout            |
-| `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`       | `INFO`                |
-| `-DpermissionMode` | How to respond to agent permission requests (see below)        | `allow_always`        |
+| Parameter          | Description                                                    | Default        |
+|--------------------|----------------------------------------------------------------|----------------|
+| `-Dprompt`         | The prompt text to send to the agent                           | `Say Hello`    |
+| `-Dprovider`       | The provider name for env variable checks (see below)          | `opencode-zen` |
+| `-Dmodel`          | The model to use (see available models in session config)      | ``             |
+| `-DacpAgentBinary` | The agent command (binary) to launch                           | `opencode`     |
+| `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command          | `acp`          |
+| `-DrequestTimeout` | Timeout in seconds for steps: initialize, create session, etc  | `30`           |
+| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout | no timeout     |
+| `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`       | `INFO`         |
+| `-DpermissionMode` | How to respond to agent permission requests (see below)        | `allow_always` |
 
 The parameters must be passed to the maven command as such:
 ```shell
@@ -62,9 +62,6 @@ mvn exec:exec \
   -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
 ```
 
->[NOTE]
-> By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
-
 ## Providers
 
 The required environment variables are automatically checked based on the `-Dprovider` value. The client will exit with an error if any are missing.
@@ -76,6 +73,9 @@ The required environment variables are automatically checked based on the `-Dpro
 | `anthropic-vertex-ai`    | `ANTHROPIC_VERTEX_PROJECT_ID`, `ANTHROPIC_MODEL`, `CLAUDE_CODE_USE_VERTEX`, `CLOUD_ML_REGION`                           | [Anthropic Vertex AI](https://docs.anthropic.com/en/docs/build-with-claude/vertex-ai)|
 | `anthropic`              | `ANTHROPIC_API_KEY`                                                                                                     | [Anthropic](https://docs.anthropic.com/)                                             |
 | `openai`                 | `OPENAI_API_KEY`                                                                                                        | [OpenAI](https://platform.openai.com/docs/)                                         |
+
+>[NOTE]
+> By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
 
 ### opencode acp and Google Vertex AI provider
 

@@ -73,8 +73,7 @@ public class OpenCodeAcp {
                 : (args.length > 0 ? String.join(" ", args) : DEFAULT_PROMPT);
 
         String sysPropModel = System.getProperty("model");
-        String model = (sysPropModel != null && !sysPropModel.isEmpty())
-                ? sysPropModel : DEFAULT_MODEL;
+        String model = (sysPropModel != null && !sysPropModel.isEmpty()) ? sysPropModel : null;
 
         String sysPropRequestTimeout = System.getProperty("requestTimeout");
         Duration requestTimeout = (sysPropRequestTimeout != null && !sysPropRequestTimeout.isEmpty())
@@ -137,14 +136,16 @@ public class OpenCodeAcp {
             var session = client.newSession(new NewSessionRequest(System.getProperty("user.dir"), List.of()));
             var sessionId = session.sessionId();
             logger.info("Session created: {}", sessionId);
-            // 6. Set the model
-            var configResponse = client.setConfigOption(
-                    new SetSessionConfigOptionRequest("model", sessionId, model));
-            if (configResponse.configOptions() != null) {
-                configResponse.configOptions().stream()
-                        .filter(opt -> "model".equalsIgnoreCase(opt.id()))
-                        .findFirst()
-                        .ifPresent(opt -> logger.info("Model: {}", opt.currentValue()));
+            // 6. Set the model (only if explicitly provided via -Dmodel)
+            if (model != null) {
+                var configResponse = client.setConfigOption(
+                        new SetSessionConfigOptionRequest("model", sessionId, model));
+                if (configResponse.configOptions() != null) {
+                    configResponse.configOptions().stream()
+                            .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                            .findFirst()
+                            .ifPresent(opt -> logger.info("Model: {}", opt.currentValue()));
+                }
             }
 
             // 7. Send a prompt
