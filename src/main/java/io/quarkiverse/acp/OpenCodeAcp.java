@@ -35,7 +35,7 @@ public class OpenCodeAcp {
     private static final Logger logger = LoggerFactory.getLogger(OpenCodeAcp.class);
 
     /** Default prompt used when no arguments are provided. */
-    private static final String DEFAULT_PROMPT = "Say Hello in 5 languages";
+    private static final String DEFAULT_PROMPT = "Say Hello";
 
     /** Default model used when no {@code -Dmodel=...} is provided. */
     private static final String DEFAULT_MODEL = "opencode/big-pickle";

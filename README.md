@@ -24,17 +24,17 @@ mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-a
 
 ### Parameters
 
-| Parameter          | Description                                                    | Default                    |
-|--------------------|----------------------------------------------------------------|----------------------------|
-| `-Dprompt`         | The prompt text to send to the agent                           | `Say Hello in 5 languages` |
-| `-Dmodel`          | The model to use (see available models in session config)      | `opencode/big-pickle`      |
-| `-Dprovider`       | The provider name for env variable checks (see below)          | `opencode-zen`             |
-| `-DacpAgentBinary` | The agent command (binary) to launch                           | `opencode`                 |
-| `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command          | `acp`                      |
-| `-DrequestTimeout` | Timeout in seconds for steps: initialize, create session, etc  | `30`                       |
-| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout | no timeout                 |
-| `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`       | `INFO`                     |
-| `-DpermissionMode` | How to respond to agent permission requests (see below)        | `allow_always`             |
+| Parameter          | Description                                                    | Default               |
+|--------------------|----------------------------------------------------------------|-----------------------|
+| `-Dprompt`         | The prompt text to send to the agent                           | `Say Hello`           |
+| `-Dmodel`          | The model to use (see available models in session config)      | `opencode/big-pickle` |
+| `-Dprovider`       | The provider name for env variable checks (see below)          | `opencode-zen`        |
+| `-DacpAgentBinary` | The agent command (binary) to launch                           | `opencode`            |
+| `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command          | `acp`                 |
+| `-DrequestTimeout` | Timeout in seconds for steps: initialize, create session, etc  | `30`                  |
+| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout | no timeout            |
+| `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`       | `INFO`                |
+| `-DpermissionMode` | How to respond to agent permission requests (see below)        | `allow_always`        |
 
 Examples:
 ```shell
