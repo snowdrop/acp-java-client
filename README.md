@@ -21,26 +21,19 @@ mvn exec:exec -Dprompt="What is 6+6?"
 and look within your terminal to the response that you got:
 ```shell
 [INFO] --- exec:3.6.3:exec (default-cli) @ acp-client ---
-10:53:49,885 INFO  [StdioAcpClientTransport] ACP agent starting
-10:53:54,189 INFO  [StdioAcpClientTransport] ACP agent started                                                                                                                                                   
-10:53:55,257 INFO  [OpenCodeAcp] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
-10:53:55,435 INFO  [OpenCodeAcp] Session created: ses_1b64235b4ffedOpRh1hZiGKe65                                                                                                                                 
-10:53:55,442 INFO  [OpenCodeAcp] [Commands] Available:                                                                                                                                                           
-10:53:55,446 INFO  [OpenCodeAcp] Model: opencode/big-pickle                                                                                                                                                      
+11:11:57,492 INFO  [StdioAcpClientTransport] ACP agent starting
+11:11:57,522 INFO  [StdioAcpClientTransport] ACP agent started                                                                                                                                                   
+11:11:58,435 INFO  [OpenCodeAcp] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
+11:11:58,613 INFO  [OpenCodeAcp] Session created: ses_1b631ae8bffegMSoAYKMCI6cUc                                                                                                                                 
+11:11:58,619 INFO  [OpenCodeAcp] [Commands] Available:                                                                                                                                                           
+11:11:58,622 INFO  [OpenCodeAcp] Model: opencode/big-pickle                                                                                                                                                      
+11:11:58,623 INFO  [OpenCodeAcp] Sending prompt: Say Hello                                                                                                                                                       
 Here is the AI response:                                                                                                                                                                                         
-10:53:55,446 INFO  [OpenCodeAcp] Sending prompt: Say Hello
-10:53:56,808 INFO  [OpenCodeAcp] [Thought] The                                                                                                                                                                   
-10:53:56,908 INFO  [OpenCodeAcp] [Thought]  user                                                                                                                                                                 
-10:53:56,945 INFO  [OpenCodeAcp] [Thought]  wants                                                                                                                                                                
-10:53:56,949 INFO  [OpenCodeAcp] [Thought]  me                                                                                                                                                                   
-10:53:56,952 INFO  [OpenCodeAcp] [Thought]  to                                                                                                                                                                   
-10:53:56,954 INFO  [OpenCodeAcp] [Thought]  say                                                                                                                                                                  
-10:53:56,973 INFO  [OpenCodeAcp] [Thought]  hello                                                                                                                                                                
-10:53:57,008 INFO  [OpenCodeAcp] [Thought] .                                                                                                                                                                     
-Hello10:53:57,201 INFO  [OpenCodeAcp] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}                                                                                                                
-10:53:57,206 INFO  [OpenCodeAcp]                                                                                                                                                                                 
-Done! Stop reason: END_TURN                                                                                                                                                                                      
-10:53:57,218 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143) 
+Hello
+11:12:00,661 INFO  [OpenCodeAcp] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}
+11:12:00,665 INFO  [OpenCodeAcp] Done! Stop reason: END_TURN                                                                                                                                                     
+11:12:00,676 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)                                                                                                                           
+[INFO] ------------------------------------------------------------------------ 
 ```
 
 ### Parameters
