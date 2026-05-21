@@ -89,7 +89,14 @@ To regenerate the Java classes after updating the schema file, run `JSonSchemaGe
 mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator
 ```
 
-This reads `src/main/resources/schema/acp/v1/schema.json` from the classpath and generates one `.java` file per schema type under the `io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1` package.
+The version segment (e.g. `v1`) is automatically derived from the schema path and appended to the base package. For the default path `/schema/acp/v1/schema.json`, it generates classes in the `io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1` package.
+
+### Generator parameters
+
+| System property  | Description                                                | Default                                                  |
+|------------------|------------------------------------------------------------|----------------------------------------------------------|
+| `-DschemaPath`   | Classpath resource path to the JSON schema                 | `/schema/acp/v1/schema.json`                             |
+| `-DbasePackage`  | Base Java package; version is appended from the schema path| `io.quarkiverse.agentclientprotocol.sdk.spec.schema`     |
 
 ### What it generates
 
@@ -105,12 +112,13 @@ This reads `src/main/resources/schema/acp/v1/schema.json` from the classpath and
 
 1. Download the latest `schema.json` from the [ACP specification](https://agentclientprotocol.com/specification)
 2. Place it under `src/main/resources/schema/acp/<version>/schema.json` (e.g. `v2`)
-3. Update the `PACKAGE` constant in `JSonSchemaGenerator.java` to match the new version
-4. Regenerate the classes:
+3. Regenerate the classes by pointing to the new schema path:
    ```shell
-   mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator
+   mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator \
+       -DschemaPath=/schema/acp/v2/schema.json
    ```
-5. Review the generated classes for any breaking changes
-6. Check if any manually amended records (e.g. `SessionConfigOption`, `SelectedPermissionOutcome`) need their custom fields re-applied, as the generator will overwrite them
+   This automatically generates classes into the `.schema.v2` package.
+4. Review the generated classes for any breaking changes
+5. Check if any manually amended records (e.g. `SessionConfigOption`, `SelectedPermissionOutcome`) need their custom fields re-applied, as the generator will overwrite them
 
 > **Note:** Some generated records have been manually amended to add fields missing from the schema or to include discriminator properties. After regeneration, check the git diff carefully and re-apply any manual changes.

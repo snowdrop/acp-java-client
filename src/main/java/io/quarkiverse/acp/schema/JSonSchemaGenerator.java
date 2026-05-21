@@ -12,9 +12,9 @@ import java.util.*;
 /**
  * Code generator that produces Java records and enums from the ACP JSON Schema.
  *
- * <p>Reads the schema definition from {@code /schema/acp/v1/schema.json} on the classpath
- * and generates one {@code .java} file per type under the
- * {@code io.quarkiverse.agentclientprotocol.sdk.spec.schema} package.
+ * <p>Reads the schema definition from a classpath resource (default: {@code /schema/acp/v1/schema.json})
+ * and generates one {@code .java} file per type. The version segment (e.g. {@code v1}) is
+ * derived from the schema path and appended to the base package name.
  *
  * <p>Supported schema constructs:
  * <ul>
@@ -25,34 +25,70 @@ import java.util.*;
  *   <li><b>anyOf union types</b> &rarr; skipped (use {@code Object} at call sites)</li>
  * </ul>
  *
+ * <p>System properties:
+ * <ul>
+ *   <li>{@code -DschemaPath=/schema/acp/v1/schema.json} &mdash; classpath resource path (default: {@code /schema/acp/v1/schema.json})</li>
+ *   <li>{@code -DbasePackage=com.example.schema} &mdash; base package; version is appended automatically (default: {@code io.quarkiverse.agentclientprotocol.sdk.spec.schema})</li>
+ * </ul>
+ *
+ * <p>The version is extracted from the schema path: for {@code /schema/acp/v1/schema.json}
+ * the version is {@code v1}, producing package {@code io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1}.
+ *
  * <p>Run as a standalone program:
  * <pre>{@code
- * mvn exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator \
+ *     -DschemaPath=/schema/acp/v2/schema.json
+ * mvn compile exec:java -Dexec.mainClass=io.quarkiverse.acp.schema.JSonSchemaGenerator \
+ *     -DschemaPath=/schema/acp/v2/schema.json -DbasePackage=com.example.acp.schema
  * }</pre>
  */
 public class JSonSchemaGenerator {
 
-    private static final String PACKAGE = "io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1";
+    private static final String DEFAULT_SCHEMA_PATH = "/schema/acp/v1/schema.json";
+    private static final String DEFAULT_BASE_PACKAGE = "io.quarkiverse.agentclientprotocol.sdk.spec.schema";
     private static final Path OUTPUT_DIR = Path.of("src", "main", "java");
 
+    private static String targetPackage;
     private static JsonNode allDefs;
 
     /**
      * Reads the ACP JSON Schema and generates Java source files.
      *
+     * <p>The schema path and base package can be configured via system properties:
+     * <ul>
+     *   <li>{@code -DschemaPath} &mdash; classpath path to the JSON schema</li>
+     *   <li>{@code -DbasePackage} &mdash; base Java package (version is appended from the schema path)</li>
+     * </ul>
+     *
      * @param args unused
      * @throws IOException if the schema cannot be read or files cannot be written
      */
     public static void main(String[] args) throws IOException {
+        String schemaPath = System.getProperty("schemaPath", DEFAULT_SCHEMA_PATH);
+        String basePackage = System.getProperty("basePackage", DEFAULT_BASE_PACKAGE);
+
+        // Derive version from the schema path: /schema/acp/v1/schema.json -> v1
+        String version = extractVersion(schemaPath);
+        targetPackage = basePackage + "." + version;
+
+        System.out.println("Schema path:    " + schemaPath);
+        System.out.println("Target package: " + targetPackage);
+
         ObjectMapper mapper = new ObjectMapper();
 
-        try (InputStream is = JSonSchemaGenerator.class.getResourceAsStream("/schema/acp/v1/schema.json")) {
+        try (InputStream is = JSonSchemaGenerator.class.getResourceAsStream(schemaPath)) {
+            if (is == null) {
+                System.err.println("ERROR: Schema not found on classpath: " + schemaPath);
+                System.exit(1);
+            }
             JsonNode root = mapper.readTree(is);
             allDefs = root.get("$defs");
 
-            Path packageDir = OUTPUT_DIR.resolve(PACKAGE.replace('.', '/'));
+            Path packageDir = OUTPUT_DIR.resolve(targetPackage.replace('.', '/'));
             Files.createDirectories(packageDir);
 
+            int count = 0;
             Iterator<Map.Entry<String, JsonNode>> fields = allDefs.fields();
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> entry = fields.next();
@@ -63,9 +99,28 @@ public class JSonSchemaGenerator {
                 if (javaCode != null) {
                     Files.writeString(packageDir.resolve(name + ".java"), javaCode);
                     System.out.println("Generated: " + name);
+                    count++;
                 }
             }
+            System.out.println("Done! Generated " + count + " files.");
         }
+    }
+
+    /**
+     * Extracts the version segment from a schema classpath path.
+     * For example: {@code /schema/acp/v1/schema.json} &rarr; {@code v1}
+     *
+     * @param schemaPath the classpath resource path
+     * @return the version segment
+     */
+    private static String extractVersion(String schemaPath) {
+        // Split path segments and find the parent directory of schema.json
+        // /schema/acp/v1/schema.json -> ["", "schema", "acp", "v1", "schema.json"]
+        String[] segments = schemaPath.split("/");
+        if (segments.length >= 2) {
+            return segments[segments.length - 2]; // "v1"
+        }
+        return "v1";
     }
 
     /**
@@ -106,7 +161,7 @@ public class JSonSchemaGenerator {
      */
     private static String generateStringEnum(String name, JsonNode schema) {
         StringBuilder sb = new StringBuilder();
-        sb.append("package ").append(PACKAGE).append(";\n\n");
+        sb.append("package ").append(targetPackage).append(";\n\n");
         sb.append("import com.fasterxml.jackson.annotation.JsonValue;\n\n");
         appendJavadoc(sb, schema, "");
         sb.append("public enum ").append(name).append(" {\n");
@@ -137,7 +192,7 @@ public class JSonSchemaGenerator {
      */
     private static String generateOneOfEnum(String name, JsonNode schema) {
         StringBuilder sb = new StringBuilder();
-        sb.append("package ").append(PACKAGE).append(";\n\n");
+        sb.append("package ").append(targetPackage).append(";\n\n");
         sb.append("import com.fasterxml.jackson.annotation.JsonValue;\n\n");
         appendJavadoc(sb, schema, "");
         sb.append("public enum ").append(name).append(" {\n");
@@ -209,7 +264,7 @@ public class JSonSchemaGenerator {
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("package ").append(PACKAGE).append(";\n\n");
+        sb.append("package ").append(targetPackage).append(";\n\n");
         for (String imp : imports) {
             sb.append("import ").append(imp).append(";\n");
         }
