@@ -27,7 +27,7 @@ The project is organized as a multi-module Maven build:
 Compile the project and run the `mvn exec:exec` command from the `client` module:
 ```shell
 mvn clean install
-mvn exec:exec -pl client                                   # Default prompt: Say Hello
+mvn exec:exec -pl client # Default prompt: Say Hello
 mvn exec:exec -pl client -Dprompt="What is 6+6?"
 ```
 and look within your terminal to the response that you got:
@@ -72,6 +72,14 @@ mvn exec:exec -pl client \
   -Dmodel="claude-opus-4-6" \
   -DacpAgentBinary="claude-agent-acp" \
   -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
+```
+Here is typical command that you will run to analyze a java project
+```shell
+mvn exec:exec -pl client \
+  -Dprovider="anthropic-vertex-ai" \
+  -Dmodel="claude-opus-4-6" \
+  -DacpAgentBinary="claude-agent-acp" \
+  -Dprompt="Execute the **java-project-discovery** skill. Inspect the workspace root directory, determine the build setup, target Java version, and framework configurations, and return the structured JSON output."
 ```
 
 ## Providers
