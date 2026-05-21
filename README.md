@@ -109,7 +109,7 @@ mvn exec:exec \
 ```shell
 mvn exec:exec \
   -DacpAgentBinary="pi-acp" \
-  -Dprompt="Say Hello to a py user"
+  -Dprompt="Say Hello"
 ```
 
 ## Permissions
