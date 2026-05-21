@@ -74,7 +74,7 @@ The required environment variables are automatically checked based on the `-Dpro
 | `anthropic`              | `ANTHROPIC_API_KEY`                                                                                                     | [Anthropic](https://docs.anthropic.com/)                                             |
 | `openai`                 | `OPENAI_API_KEY`                                                                                                        | [OpenAI](https://platform.openai.com/docs/)                                         |
 
->[NOTE]
+> [!NOTE]
 > By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
 
 ### opencode acp and Google Vertex AI provider
