@@ -31,9 +31,9 @@ mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-a
 | `-DrequestTimeout` | Timeout in seconds for short-lived RPC calls (initialize, session, config) | `30`                       |
 | `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout             | no timeout                 |
 
-Example with timeouts:
+Example with prompt:
 ```shell
-mvn exec:exec -Dprompt="Create a Java HelloWorld class" -DrequestTimeout=15 -DpromptTimeout=300
+mvn exec:exec -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
 ```
 and look within your terminal to the response that you got:
 ```shell
