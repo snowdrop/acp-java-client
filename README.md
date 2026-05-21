@@ -12,14 +12,35 @@ This project is a Java client library for ACP, built with [SmallRye Mutiny](http
 
 ## Usage
 
-Execute one of these commands to run some prompts: 
+Compile the project ad run the `mvn exec:exec` commandd:
 ```shell
 mvn clean package
-mvn exec:exec
+mvn exec:exec // Use the default prompt message: Say Hello
 mvn exec:exec -Dprompt="What is 6+6?"
-mvn exec:exec -Dprompt="What is 6+6?" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
-mvn exec:exec -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
-mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
+```
+and look within your terminal to the response that you got:
+```shell
+[INFO] --- exec:3.6.3:exec (default-cli) @ acp-client ---
+10:53:49,885 INFO  [StdioAcpClientTransport] ACP agent starting
+10:53:54,189 INFO  [StdioAcpClientTransport] ACP agent started                                                                                                                                                   
+10:53:55,257 INFO  [OpenCodeAcp] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
+10:53:55,435 INFO  [OpenCodeAcp] Session created: ses_1b64235b4ffedOpRh1hZiGKe65                                                                                                                                 
+10:53:55,442 INFO  [OpenCodeAcp] [Commands] Available:                                                                                                                                                           
+10:53:55,446 INFO  [OpenCodeAcp] Model: opencode/big-pickle                                                                                                                                                      
+Here is the AI response:                                                                                                                                                                                         
+10:53:55,446 INFO  [OpenCodeAcp] Sending prompt: Say Hello
+10:53:56,808 INFO  [OpenCodeAcp] [Thought] The                                                                                                                                                                   
+10:53:56,908 INFO  [OpenCodeAcp] [Thought]  user                                                                                                                                                                 
+10:53:56,945 INFO  [OpenCodeAcp] [Thought]  wants                                                                                                                                                                
+10:53:56,949 INFO  [OpenCodeAcp] [Thought]  me                                                                                                                                                                   
+10:53:56,952 INFO  [OpenCodeAcp] [Thought]  to                                                                                                                                                                   
+10:53:56,954 INFO  [OpenCodeAcp] [Thought]  say                                                                                                                                                                  
+10:53:56,973 INFO  [OpenCodeAcp] [Thought]  hello                                                                                                                                                                
+10:53:57,008 INFO  [OpenCodeAcp] [Thought] .                                                                                                                                                                     
+Hello10:53:57,201 INFO  [OpenCodeAcp] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}                                                                                                                
+10:53:57,206 INFO  [OpenCodeAcp]                                                                                                                                                                                 
+Done! Stop reason: END_TURN                                                                                                                                                                                      
+10:53:57,218 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143) 
 ```
 
 ### Parameters
@@ -27,8 +48,8 @@ mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-a
 | Parameter          | Description                                                    | Default               |
 |--------------------|----------------------------------------------------------------|-----------------------|
 | `-Dprompt`         | The prompt text to send to the agent                           | `Say Hello`           |
-| `-Dmodel`          | The model to use (see available models in session config)      | `opencode/big-pickle` |
 | `-Dprovider`       | The provider name for env variable checks (see below)          | `opencode-zen`        |
+| `-Dmodel`          | The model to use (see available models in session config)      | `opencode/big-pickle` |
 | `-DacpAgentBinary` | The agent command (binary) to launch                           | `opencode`            |
 | `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command          | `acp`                 |
 | `-DrequestTimeout` | Timeout in seconds for steps: initialize, create session, etc  | `30`                  |
@@ -36,7 +57,7 @@ mvn exec:exec -Dprompt="Create a Java HelloWorld class" -Dmodel="google-vertex-a
 | `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`       | `INFO`                |
 | `-DpermissionMode` | How to respond to agent permission requests (see below)        | `allow_always`        |
 
-Examples:
+The parameters must be passed to the maven command as such:
 ```shell
 mvn exec:exec \
   -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
@@ -47,30 +68,7 @@ mvn exec:exec \
   -DacpAgentBinary="claude-agent-acp" \
   -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
 ```
-and look within your terminal to the response that you got:
-```shell
-[INFO] --- exec:3.6.3:exec (default-cli) @ acp-client ---
-19:00:32,320 INFO  [StdioAcpClientTransport] ACP agent starting
-19:00:36,488 INFO  [StdioAcpClientTransport] ACP agent started
-19:00:37,417 INFO  [OpenCodeAcp] Connected to agent: OpenCode - v1.15.4
-19:00:37,601 INFO  [OpenCodeAcp] Session created: ses_1b9aafabaffe6MEp0se1ONNKdJ
-19:00:37,601 INFO  [OpenCodeAcp] Sending prompt: Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too.
-Here is the AI response:
-Created `HELLO.md` at the project root with 5 hello messages as instructed.
 
-```
-# Hello, World! 🌍
-
-1. Hello, World!
-2. Hello, Universe!
-3. Hello, Galaxy!
-4. Hello, Solar System!
-5. Hello, Earth!
-```19:00:56,158 INFO  [OpenCodeAcp] 
-Done! Stop reason: END_TURN
-19:00:56,168 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)
-[INFO] ------------------------------------------------------------------------
-```
 >[NOTE]
 > By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
 

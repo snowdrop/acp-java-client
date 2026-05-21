@@ -34,6 +34,12 @@ public class OpenCodeAcp {
 
     private static final Logger logger = LoggerFactory.getLogger(OpenCodeAcp.class);
 
+    /** Buffer for accumulating streamed thought chunks into a single log line. */
+    private static final StringBuilder thoughtBuffer = new StringBuilder();
+
+    /** Tracks whether agent message text was printed, so we can add a newline before the next log line. */
+    private static volatile boolean messageOutputPending = false;
+
     /** Default prompt used when no arguments are provided. */
     private static final String DEFAULT_PROMPT = "Say Hello";
 
@@ -48,14 +54,17 @@ public class OpenCodeAcp {
      */
     public static void main(String[] args) {
         // Override log level if -DlogLevel=... is provided
+        // Only applies to application loggers, not JDK internals
         String logLevel = System.getProperty("logLevel");
         if (logLevel != null && !logLevel.isEmpty()) {
             Level level = Level.parse(logLevel.toUpperCase());
+            // Set handler level so it doesn't filter out messages
             java.util.logging.Logger rootLogger = LogManager.getLogManager().getLogger("");
-            rootLogger.setLevel(level);
             for (var handler : rootLogger.getHandlers()) {
                 handler.setLevel(level);
             }
+            // Only adjust application loggers
+            java.util.logging.Logger.getLogger("io.quarkiverse").setLevel(level);
         }
 
         String sysPropPrompt = System.getProperty("prompt");
@@ -146,7 +155,12 @@ public class OpenCodeAcp {
                     sessionId
             ));
 
-            logger.info("\nDone! Stop reason: {}", response.stopReason());
+            flushThoughts();
+            if (messageOutputPending) {
+                System.out.println();
+                messageOutputPending = false;
+            }
+            logger.info("Done! Stop reason: {}", response.stopReason());
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -168,13 +182,25 @@ public class OpenCodeAcp {
             return;
         }
 
+        // Flush buffered thoughts when a different update type arrives
+        if (!"agent_thought_chunk".equals(updateType)) {
+            flushThoughts();
+        }
+
+        // Add a newline after message output before the next log line
+        if (!"agent_message_chunk".equals(updateType) && messageOutputPending) {
+            System.out.println();
+            messageOutputPending = false;
+        }
+
         switch (update) {
             case ContentChunk chunk -> {
                 if ("agent_thought_chunk".equals(updateType)) {
-                    logger.info("[Thought] {}", extractText(chunk.content()));
+                    thoughtBuffer.append(extractText(chunk.content()));
                 } else {
                     // Agent message text is always printed (primary output)
                     System.out.print(extractText(chunk.content()));
+                    messageOutputPending = true;
                 }
             }
             case Plan plan -> {
@@ -219,6 +245,16 @@ public class OpenCodeAcp {
      * @param content the raw content object from a {@link ContentChunk}
      * @return the text string, or an empty string if unavailable
      */
+    /**
+     * Flushes accumulated thought chunks as a single log line.
+     */
+    private static void flushThoughts() {
+        if (!thoughtBuffer.isEmpty()) {
+            logger.debug("[Thought] {}", thoughtBuffer.toString().strip());
+            thoughtBuffer.setLength(0);
+        }
+    }
+
     private static String extractText(Object content) {
         if (content instanceof Map<?,?> map) {
             Object text = map.get("text");
