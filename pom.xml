@@ -37,12 +37,7 @@
     </properties>
 
     <dependencies>
-        <!-- Mutiny -->
-        <dependency>
-            <groupId>io.smallrye.reactive</groupId>
-            <artifactId>mutiny</artifactId>
-            <version>${mutiny.version}</version>
-        </dependency>
+        <!-- Mutiny Zero (lightweight reactive) -->
         <dependency>
             <groupId>io.smallrye.reactive</groupId>
             <artifactId>mutiny-zero</artifactId>

@@ -7,24 +7,22 @@ import io.quarkiverse.agentclientprotocol.sdk.spec.schema.Error;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.smallrye.mutiny.Uni;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Mutiny-based asynchronous ACP client.
+ * Asynchronous ACP client using {@link CompletableFuture}.
  *
  * <p>Communicates with an ACP agent over a {@link StdioAcpClientTransport} using
- * JSON-RPC 2.0 over stdio. All protocol methods return {@link Uni} for non-blocking
- * composition.
+ * JSON-RPC 2.0 over stdio. All protocol methods return {@link CompletableFuture} for
+ * non-blocking composition.
  *
  * <p>Inbound JSON-RPC messages are routed to either:
  * <ul>
@@ -66,6 +64,13 @@ public class AcpAsyncClient {
     private final AtomicInteger requestIdCounter = new AtomicInteger(0);
     private final ConcurrentHashMap<Integer, CompletableFuture<JsonNode>> pendingRequests = new ConcurrentHashMap<>();
 
+    // Shared scheduler for request timeouts
+    private final ScheduledExecutorService timeoutScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "acp-timeout-scheduler");
+        t.setDaemon(true);
+        return t;
+    });
+
     AcpAsyncClient(StdioAcpClientTransport transport, Duration requestTimeout,
                    Duration promptTimeout, Consumer<SessionNotification> sessionUpdateConsumer,
                    Function<RequestPermissionRequest, RequestPermissionResponse> permissionRequestHandler) {
@@ -84,18 +89,19 @@ public class AcpAsyncClient {
     /**
      * Starts the underlying transport, launching the agent process.
      *
-     * @return a {@link Uni} that completes when the transport is ready
+     * @return a {@link CompletableFuture} that completes when the transport is ready
      */
-    public Uni<Void> connect() {
+    public CompletableFuture<Void> connect() {
         return transport.connect();
     }
 
     /**
      * Gracefully shuts down the transport and the agent process.
      *
-     * @return a {@link Uni} that completes when shutdown is finished
+     * @return a {@link CompletableFuture} that completes when shutdown is finished
      */
-    public Uni<Void> closeGracefully() {
+    public CompletableFuture<Void> closeGracefully() {
+        timeoutScheduler.shutdownNow();
         return transport.closeGracefully();
     }
 
@@ -105,20 +111,20 @@ public class AcpAsyncClient {
      * Sends an {@code initialize} request to perform the ACP handshake.
      *
      * @param request the initialization parameters including protocol version and client capabilities
-     * @return a {@link Uni} emitting the agent's capabilities and metadata
+     * @return a {@link CompletableFuture} emitting the agent's capabilities and metadata
      */
-    public Uni<InitializeResponse> initialize(InitializeRequest request) {
+    public CompletableFuture<InitializeResponse> initialize(InitializeRequest request) {
         return sendRequest("initialize", request)
-                .map(result -> mapper.convertValue(result, InitializeResponse.class));
+                .thenApply(result -> mapper.convertValue(result, InitializeResponse.class));
     }
 
     /**
      * Sends an {@code initialize} request with default client capabilities
      * (filesystem read/write and terminal support, protocol version 1).
      *
-     * @return a {@link Uni} emitting the agent's capabilities and metadata
+     * @return a {@link CompletableFuture} emitting the agent's capabilities and metadata
      */
-    public Uni<InitializeResponse> initialize() {
+    public CompletableFuture<InitializeResponse> initialize() {
         return initialize(new InitializeRequest(
                 null,
                 new ClientCapabilities(null, new FileSystemCapabilities(null, true, true), true),
@@ -131,11 +137,11 @@ public class AcpAsyncClient {
      * Creates a new agent session.
      *
      * @param request the session parameters including working directory and MCP servers
-     * @return a {@link Uni} emitting the session ID and available modes
+     * @return a {@link CompletableFuture} emitting the session ID and available modes
      */
-    public Uni<NewSessionResponse> newSession(NewSessionRequest request) {
+    public CompletableFuture<NewSessionResponse> newSession(NewSessionRequest request) {
         return sendRequest("session/new", request)
-                .map(result -> mapper.convertValue(result, NewSessionResponse.class));
+                .thenApply(result -> mapper.convertValue(result, NewSessionResponse.class));
     }
 
     /**
@@ -143,72 +149,74 @@ public class AcpAsyncClient {
      * Session updates are streamed via the {@code sessionUpdateConsumer}.
      *
      * @param request the prompt content and session ID
-     * @return a {@link Uni} emitting the stop reason when the agent finishes
+     * @return a {@link CompletableFuture} emitting the stop reason when the agent finishes
      */
-    public Uni<PromptResponse> prompt(PromptRequest request) {
-        Uni<JsonNode> uni = (promptTimeout != null)
+    public CompletableFuture<PromptResponse> prompt(PromptRequest request) {
+        CompletableFuture<JsonNode> future = (promptTimeout != null)
                 ? sendRequest("session/prompt", request, promptTimeout)
                 : sendRequestNoTimeout("session/prompt", request);
-        return uni.map(result -> mapper.convertValue(result, PromptResponse.class));
+        return future.thenApply(result -> mapper.convertValue(result, PromptResponse.class));
     }
 
     /**
      * Sets a session configuration option (e.g. the model).
      *
      * @param request the config option ID, value, and session ID
-     * @return a {@link Uni} emitting the updated config options
+     * @return a {@link CompletableFuture} emitting the updated config options
      */
-    public Uni<SetSessionConfigOptionResponse> setConfigOption(SetSessionConfigOptionRequest request) {
+    public CompletableFuture<SetSessionConfigOptionResponse> setConfigOption(SetSessionConfigOptionRequest request) {
         return sendRequest("session/set_config_option", request)
-                .map(result -> mapper.convertValue(result, SetSessionConfigOptionResponse.class));
+                .thenApply(result -> mapper.convertValue(result, SetSessionConfigOptionResponse.class));
     }
 
     /**
      * Closes an existing session.
      *
      * @param request the session ID to close
-     * @return a {@link Uni} that completes when the session is closed
+     * @return a {@link CompletableFuture} that completes when the session is closed
      */
-    public Uni<CloseSessionResponse> closeSession(CloseSessionRequest request) {
+    public CompletableFuture<CloseSessionResponse> closeSession(CloseSessionRequest request) {
         return sendRequest("session/close", request)
-                .map(result -> mapper.convertValue(result, CloseSessionResponse.class));
+                .thenApply(result -> mapper.convertValue(result, CloseSessionResponse.class));
     }
 
     /**
      * Sends a cancellation notification for the current prompt turn.
      *
      * @param notification the session ID to cancel
-     * @return a {@link Uni} that completes when the notification is sent
+     * @return a {@link CompletableFuture} that completes when the notification is sent
      */
-    public Uni<Void> cancel(CancelNotification notification) {
+    public CompletableFuture<Void> cancel(CancelNotification notification) {
         return sendNotification("session/cancel", notification);
     }
 
     // ===== Internal =====
 
     /**
-     * Sends a JSON-RPC 2.0 request and returns a {@link Uni} that resolves
+     * Sends a JSON-RPC 2.0 request and returns a {@link CompletableFuture} that resolves
      * when the matching response arrives or times out.
      *
      * @param method the JSON-RPC method name
      * @param params the request parameters
-     * @return a {@link Uni} emitting the {@code result} node from the response
+     * @return a {@link CompletableFuture} emitting the {@code result} node from the response
      */
-    private Uni<JsonNode> sendRequest(String method, Object params) {
+    private CompletableFuture<JsonNode> sendRequest(String method, Object params) {
         return sendRequest(method, params, requestTimeout);
     }
 
-    private Uni<JsonNode> sendRequest(String method, Object params, Duration timeout) {
-        Uni<JsonNode> uni = sendRequestNoTimeout(method, params);
+    private CompletableFuture<JsonNode> sendRequest(String method, Object params, Duration timeout) {
+        CompletableFuture<JsonNode> future = sendRequestNoTimeout(method, params);
         if (timeout != null) {
             int id = requestIdCounter.get(); // last assigned id
-            uni = uni.ifNoItem().after(timeout)
-                    .failWith(() -> {
-                        pendingRequests.remove(id);
-                        return new RuntimeException("Request timeout for " + method + " (id=" + id + ")");
-                    });
+            ScheduledFuture<?> timeoutTask = timeoutScheduler.schedule(() -> {
+                pendingRequests.remove(id);
+                future.completeExceptionally(
+                        new TimeoutException("Request timeout for " + method + " (id=" + id + ")"));
+            }, timeout.toMillis(), TimeUnit.MILLISECONDS);
+            // Cancel the timeout task when the future completes normally
+            future.whenComplete((result, error) -> timeoutTask.cancel(false));
         }
-        return uni;
+        return future;
     }
 
     /**
@@ -216,7 +224,7 @@ public class AcpAsyncClient {
      * Used for long-running operations like prompts where the agent streams updates
      * while working and the response arrives only when the agent is done.
      */
-    private Uni<JsonNode> sendRequestNoTimeout(String method, Object params) {
+    private CompletableFuture<JsonNode> sendRequestNoTimeout(String method, Object params) {
         int id = requestIdCounter.incrementAndGet();
         CompletableFuture<JsonNode> future = new CompletableFuture<>();
         pendingRequests.put(id, future);
@@ -229,8 +237,8 @@ public class AcpAsyncClient {
 
         logger.debug(">> {} (id={})", method, id);
 
-        return transport.sendMessage(requestNode)
-                .chain(() -> Uni.createFrom().completionStage(future));
+        transport.sendMessage(requestNode);
+        return future;
     }
 
     /**
@@ -238,9 +246,9 @@ public class AcpAsyncClient {
      *
      * @param method the JSON-RPC method name
      * @param params the notification parameters
-     * @return a {@link Uni} that completes when the message is sent
+     * @return a {@link CompletableFuture} that completes when the message is sent
      */
-    private Uni<Void> sendNotification(String method, Object params) {
+    private CompletableFuture<Void> sendNotification(String method, Object params) {
         ObjectNode node = mapper.createObjectNode();
         node.put("jsonrpc", "2.0");
         node.put("method", method);
@@ -380,7 +388,7 @@ public class AcpAsyncClient {
         responseNode.set("id", id);
         responseNode.set("result", mapper.valueToTree(result));
         logger.debug("<< response (id={})", id);
-        transport.sendMessage(responseNode).await().indefinitely();
+        transport.sendMessage(responseNode);
     }
 
     /**
@@ -395,6 +403,6 @@ public class AcpAsyncClient {
         errorNode.put("message", message);
         responseNode.set("error", errorNode);
         logger.debug("<< error response (id={})", id);
-        transport.sendMessage(responseNode).await().indefinitely();
+        transport.sendMessage(responseNode);
     }
 }
