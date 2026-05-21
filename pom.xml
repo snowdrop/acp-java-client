@@ -9,6 +9,33 @@
     <version>0.1.0-SNAPSHOT</version>
     <description>AI :: Agent Client Protocol :: Client</description>
 
+    <licenses>
+        <license>
+            <distribution>repo</distribution>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>snowdrop</id>
+            <name>Snowdrop Team</name>
+        </developer>
+        <developer>
+            <id>cmoullia</id>
+            <name>Charles Moulliard</name>
+            <email>cmoulliard@ibm.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git@github.com:snowdrop/acp-client.git</connection>
+        <developerConnection>scm:git:git@github.com:snowdrop/acp-client.git</developerConnection>
+        <url>https://github.com/snowdrop/acp-client.git</url>
+        <tag>HEAD</tag>
+    </scm>
+
+
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
