@@ -48,8 +48,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <acp-core.version>0.11.0</acp-core.version>
-        <mutiny.version>3.2.0</mutiny.version>
-        <mutiny-zero.version>1.2.0</mutiny-zero.version>
         <jackson-databind.version>2.18.2</jackson-databind.version>
         <jboss-logmanager.version>3.2.2.Final</jboss-logmanager.version>
         <slf4j-jboss-logmanager.version>2.1.0.Final</slf4j-jboss-logmanager.version>
@@ -70,18 +68,6 @@
                 <groupId>io.quarkiverse.ai</groupId>
                 <artifactId>acp-client-core</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <!-- Mutiny -->
-            <dependency>
-                <groupId>io.smallrye.reactive</groupId>
-                <artifactId>mutiny</artifactId>
-                <version>${mutiny.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.smallrye.reactive</groupId>
-                <artifactId>mutiny-zero</artifactId>
-                <version>${mutiny-zero.version}</version>
             </dependency>
 
             <!-- ACP -->

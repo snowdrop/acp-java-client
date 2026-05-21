@@ -21,16 +21,6 @@
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
-        <!-- Mutiny -->
-        <dependency>
-            <groupId>io.smallrye.reactive</groupId>
-            <artifactId>mutiny</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.smallrye.reactive</groupId>
-            <artifactId>mutiny-zero</artifactId>
-        </dependency>
-
         <!-- ACP -->
         <dependency>
             <groupId>com.agentclientprotocol</groupId>
