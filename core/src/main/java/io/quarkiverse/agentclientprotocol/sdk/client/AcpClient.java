@@ -30,7 +30,7 @@ public final class AcpClient {
     }
 
     /**
-     * Creates a builder for an asynchronous (Mutiny {@link io.smallrye.mutiny.Uni}-based) ACP client.
+     * Creates a builder for an asynchronous ({@link java.util.concurrent.CompletableFuture}-based) ACP client.
      *
      * @param transport the stdio transport to use
      * @return an {@link AsyncBuilder} for configuring and building the client

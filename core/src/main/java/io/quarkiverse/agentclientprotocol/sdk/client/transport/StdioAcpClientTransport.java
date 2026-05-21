@@ -9,10 +9,6 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1.TextContent;
-import io.smallrye.mutiny.Multi;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.subscription.Cancellable;
-import io.smallrye.mutiny.subscription.MultiEmitter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,11 +20,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
- * Mutiny-based ACP stdio transport.
+ * ACP stdio transport.
  *
  * <p>Communicates with an ACP agent subprocess using standard input/output streams.
  * Messages are exchanged as newline-delimited JSON-RPC 2.0 over stdin/stdout.
@@ -37,7 +34,7 @@ import java.util.function.Consumer;
  * <ul>
  *   <li><b>inbound</b> — daemon thread reading from the agent's stdout, dispatching
  *       parsed JSON messages to the registered {@link #setInboundMessageHandler handler}</li>
- *   <li><b>outbound</b> — daemon thread consuming a Mutiny {@link io.smallrye.mutiny.Multi}
+ *   <li><b>outbound</b> — daemon thread consuming a {@link LinkedBlockingQueue}
  *       and writing serialized JSON to the agent's stdin</li>
  *   <li><b>error</b> — daemon thread forwarding the agent's stderr to a configurable handler</li>
  * </ul>
@@ -62,8 +59,7 @@ public class StdioAcpClientTransport {
     private volatile boolean isClosing = false;
 
     // Outbound: client → agent (JSON-RPC requests)
-    private MultiEmitter<? super JsonNode> outboundEmitter;
-    private Cancellable outboundSubscription;
+    private final LinkedBlockingQueue<JsonNode> outboundQueue = new LinkedBlockingQueue<>();
 
     // Thread pools — daemon threads so JVM can exit if closeGracefully() isn't called
     private final ExecutorService inboundExecutor;
@@ -160,54 +156,43 @@ public class StdioAcpClientTransport {
 
     /**
      * Launches the agent process and starts the inbound, outbound, and error processing threads.
-     *
-     * @return a {@link Uni} that completes when the transport is ready
      */
-    public Uni<Void> connect() {
-        return Uni.createFrom().item(() -> {
-            logger.info("ACP agent starting");
+    public void connect() {
+        logger.info("ACP agent starting");
 
-            List<String> fullCommand = new ArrayList<>();
-            fullCommand.add(params.getCommand());
-            fullCommand.addAll(params.getArgs());
+        List<String> fullCommand = new ArrayList<>();
+        fullCommand.add(params.getCommand());
+        fullCommand.addAll(params.getArgs());
 
-            ProcessBuilder processBuilder = new ProcessBuilder();
-            processBuilder.command(fullCommand);
-            processBuilder.environment().putAll(params.getEnv());
+        ProcessBuilder processBuilder = new ProcessBuilder();
+        processBuilder.command(fullCommand);
+        processBuilder.environment().putAll(params.getEnv());
 
-            try {
-                this.process = processBuilder.start();
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to start process: " + fullCommand, e);
-            }
+        try {
+            this.process = processBuilder.start();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to start process: " + fullCommand, e);
+        }
 
-            if (process.getInputStream() == null || process.getOutputStream() == null) {
-                process.destroy();
-                throw new RuntimeException("Process input or output stream is null");
-            }
+        if (process.getInputStream() == null || process.getOutputStream() == null) {
+            process.destroy();
+            throw new RuntimeException("Process input or output stream is null");
+        }
 
-            startInboundProcessing();
-            startOutboundProcessing();
-            startErrorProcessing();
+        startInboundProcessing();
+        startOutboundProcessing();
+        startErrorProcessing();
 
-            logger.info("ACP agent started");
-            return null;
-        }).replaceWithVoid();
+        logger.info("ACP agent started");
     }
 
     /**
      * Sends a JSON-RPC message to the agent process via the outbound queue.
      *
      * @param message the JSON message to send
-     * @return a {@link Uni} that completes when the message is queued
      */
-    public Uni<Void> sendMessage(JsonNode message) {
-        return Uni.createFrom().voidItem()
-                .invoke(() -> {
-                    if (outboundEmitter != null) {
-                        outboundEmitter.emit(message);
-                    }
-                });
+    public void sendMessage(JsonNode message) {
+        outboundQueue.add(message);
     }
 
     private void startInboundProcessing() {
@@ -240,37 +225,35 @@ public class StdioAcpClientTransport {
     }
 
     private void startOutboundProcessing() {
-        this.outboundSubscription = Multi.createFrom().<JsonNode>emitter(e -> this.outboundEmitter = e)
-                .emitOn(outboundExecutor)
-                .subscribe().with(
-                        message -> {
-                            if (message != null && !isClosing) {
-                                try {
-                                    String jsonMessage = mapper.writeValueAsString(message);
-                                    jsonMessage = jsonMessage.replace("\r\n", "\\n")
-                                            .replace("\n", "\\n")
-                                            .replace("\r", "\\n");
-                                    logger.trace("SEND: {}", jsonMessage);
+        outboundExecutor.execute(() -> {
+            try {
+                while (!isClosing) {
+                    JsonNode message = outboundQueue.poll(100, TimeUnit.MILLISECONDS);
+                    if (message != null && !isClosing) {
+                        try {
+                            String jsonMessage = mapper.writeValueAsString(message);
+                            jsonMessage = jsonMessage.replace("\r\n", "\\n")
+                                    .replace("\n", "\\n")
+                                    .replace("\r", "\\n");
+                            logger.trace("SEND: {}", jsonMessage);
 
-                                    var os = process.getOutputStream();
-                                    synchronized (os) {
-                                        os.write(jsonMessage.getBytes(StandardCharsets.UTF_8));
-                                        os.write("\n".getBytes(StandardCharsets.UTF_8));
-                                        os.flush();
-                                    }
-                                } catch (IOException e) {
-                                    if (!isClosing) {
-                                        logger.error("Error writing outbound message", e);
-                                    }
-                                }
+                            var os = process.getOutputStream();
+                            synchronized (os) {
+                                os.write(jsonMessage.getBytes(StandardCharsets.UTF_8));
+                                os.write("\n".getBytes(StandardCharsets.UTF_8));
+                                os.flush();
                             }
-                        },
-                        error -> {
+                        } catch (IOException e) {
                             if (!isClosing) {
-                                logger.error("Outbound subscription error", error);
+                                logger.error("Error writing outbound message", e);
                             }
                         }
-                );
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
     }
 
     private void startErrorProcessing() {
@@ -290,55 +273,47 @@ public class StdioAcpClientTransport {
     }
 
     /**
-     * Gracefully shuts down the transport: cancels the outbound subscription,
+     * Gracefully shuts down the transport: drains the outbound queue,
      * sends SIGTERM to the agent process, waits up to 5 seconds for exit,
      * and shuts down all executor threads.
-     *
-     * @return a {@link Uni} that completes when shutdown is finished
      */
-    public Uni<Void> closeGracefully() {
-        return Uni.createFrom().voidItem()
-                .invoke(() -> {
-                    isClosing = true;
-                    logger.debug("Initiating graceful shutdown");
+    public void closeGracefully() {
+        isClosing = true;
+        logger.debug("Initiating graceful shutdown");
 
-                    if (outboundSubscription != null) outboundSubscription.cancel();
-                    if (outboundEmitter != null) outboundEmitter.complete();
-
-                    if (process != null) {
-                        logger.debug("Sending TERM to process");
-                        process.destroy();
-                        try {
-                            boolean exited = process.waitFor(5, TimeUnit.SECONDS);
-                            if (exited) {
-                                int exitCode = process.exitValue();
-                                if (exitCode == 0 || exitCode == 143 || exitCode == 137) {
-                                    logger.info("ACP agent process stopped (exit code {})", exitCode);
-                                } else {
-                                    logger.warn("Process terminated with code {}", exitCode);
-                                }
-                            } else {
-                                logger.warn("Process did not exit within timeout, forcing kill");
-                                process.destroyForcibly();
-                            }
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            logger.debug("Interrupted while waiting for process exit");
-                        }
+        if (process != null) {
+            logger.debug("Sending TERM to process");
+            process.destroy();
+            try {
+                boolean exited = process.waitFor(5, TimeUnit.SECONDS);
+                if (exited) {
+                    int exitCode = process.exitValue();
+                    if (exitCode == 0 || exitCode == 143 || exitCode == 137) {
+                        logger.info("ACP agent process stopped (exit code {})", exitCode);
+                    } else {
+                        logger.warn("Process terminated with code {}", exitCode);
                     }
+                } else {
+                    logger.warn("Process did not exit within timeout, forcing kill");
+                    process.destroyForcibly();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.debug("Interrupted while waiting for process exit");
+            }
+        }
 
-                    inboundExecutor.shutdownNow();
-                    outboundExecutor.shutdownNow();
-                    errorExecutor.shutdownNow();
-                    try {
-                        inboundExecutor.awaitTermination(2, TimeUnit.SECONDS);
-                        outboundExecutor.awaitTermination(2, TimeUnit.SECONDS);
-                        errorExecutor.awaitTermination(2, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                    logger.debug("Graceful shutdown completed");
-                });
+        inboundExecutor.shutdownNow();
+        outboundExecutor.shutdownNow();
+        errorExecutor.shutdownNow();
+        try {
+            inboundExecutor.awaitTermination(2, TimeUnit.SECONDS);
+            outboundExecutor.awaitTermination(2, TimeUnit.SECONDS);
+            errorExecutor.awaitTermination(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        logger.debug("Graceful shutdown completed");
     }
 
     /**

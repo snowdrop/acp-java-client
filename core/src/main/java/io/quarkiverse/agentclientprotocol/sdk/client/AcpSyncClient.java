@@ -5,6 +5,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Synchronous ACP client that wraps {@link AcpAsyncClient} with blocking calls.
@@ -42,7 +46,7 @@ public class AcpSyncClient implements AutoCloseable {
      */
     AcpSyncClient(AcpAsyncClient delegate) {
         this.delegate = delegate;
-        this.delegate.connect().await().atMost(Duration.ofSeconds(30));
+        awaitWithTimeout(this.delegate.connect(), Duration.ofSeconds(30));
     }
 
     @Override
@@ -58,7 +62,7 @@ public class AcpSyncClient implements AutoCloseable {
     public boolean closeGracefully() {
         try {
             logger.debug("Gracefully closing ACP sync client");
-            delegate.closeGracefully().await().atMost(DEFAULT_CLOSE_TIMEOUT);
+            awaitWithTimeout(delegate.closeGracefully(), DEFAULT_CLOSE_TIMEOUT);
             return true;
         } catch (RuntimeException e) {
             logger.warn("Client didn't close within timeout", e);
@@ -73,7 +77,7 @@ public class AcpSyncClient implements AutoCloseable {
      * @return the agent's capabilities and metadata
      */
     public InitializeResponse initialize(InitializeRequest request) {
-        return delegate.initialize(request).await().indefinitely();
+        return await(delegate.initialize(request));
     }
 
     /**
@@ -82,7 +86,7 @@ public class AcpSyncClient implements AutoCloseable {
      * @return the agent's capabilities and metadata
      */
     public InitializeResponse initialize() {
-        return delegate.initialize().await().indefinitely();
+        return await(delegate.initialize());
     }
 
     /**
@@ -92,7 +96,7 @@ public class AcpSyncClient implements AutoCloseable {
      * @return the session ID and available modes
      */
     public NewSessionResponse newSession(NewSessionRequest request) {
-        return delegate.newSession(request).await().indefinitely();
+        return await(delegate.newSession(request));
     }
 
     /**
@@ -102,7 +106,7 @@ public class AcpSyncClient implements AutoCloseable {
      * @return the stop reason when the agent finishes
      */
     public PromptResponse prompt(PromptRequest request) {
-        return delegate.prompt(request).await().indefinitely();
+        return await(delegate.prompt(request));
     }
 
     /**
@@ -112,7 +116,7 @@ public class AcpSyncClient implements AutoCloseable {
      * @return the updated config options
      */
     public SetSessionConfigOptionResponse setConfigOption(SetSessionConfigOptionRequest request) {
-        return delegate.setConfigOption(request).await().indefinitely();
+        return await(delegate.setConfigOption(request));
     }
 
     /**
@@ -121,6 +125,49 @@ public class AcpSyncClient implements AutoCloseable {
      * @param notification the session ID to cancel
      */
     public void cancel(CancelNotification notification) {
-        delegate.cancel(notification).await().indefinitely();
+        await(delegate.cancel(notification));
+    }
+
+    // ===== Helpers =====
+
+    /**
+     * Blocks indefinitely for a future to complete, unwrapping checked exceptions.
+     */
+    private <T> T await(CompletableFuture<T> future) {
+        try {
+            return future.get();
+        } catch (ExecutionException e) {
+            throw unwrap(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
+        }
+    }
+
+    /**
+     * Blocks for a future to complete within the given timeout, unwrapping checked exceptions.
+     */
+    private <T> T awaitWithTimeout(CompletableFuture<T> future, Duration timeout) {
+        try {
+            return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            throw unwrap(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
+        } catch (TimeoutException e) {
+            throw new RuntimeException("Timed out after " + timeout, e);
+        }
+    }
+
+    /**
+     * Unwraps an {@link ExecutionException}, preserving {@link RuntimeException} types.
+     */
+    private static RuntimeException unwrap(ExecutionException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof RuntimeException re) {
+            return re;
+        }
+        return new RuntimeException(cause);
     }
 }
