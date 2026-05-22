@@ -67,6 +67,10 @@ jbang app install --name acp-client io.quarkiverse.ai:acp-java-client:0.1.0-SNAP
 cd /java/project/to/code/using/ai
 acp-client --prompt "Say hello"
 ```
+The command supports to generate the autocompletion bash script:
+```shell
+source <(acp-client generate-completion)
+```
 
 ### Running with Quarkus dev mode
 

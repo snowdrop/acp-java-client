@@ -5,8 +5,10 @@ import io.quarkiverse.agentclientprotocol.sdk.client.AcpSyncClient;
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.AgentParameters;
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.StdioAcpClientTransport;
 import io.quarkiverse.agentclientprotocol.sdk.spec.schema.v1.*;
+import io.quarkus.picocli.runtime.annotations.TopCommand;
 import org.jboss.logging.Logger;
 import picocli.CommandLine;
+import picocli.AutoComplete.GenerateCompletion;
 
 import java.time.Duration;
 import java.util.List;
@@ -35,11 +37,13 @@ import java.util.Map;
  *   --prompt "Say hello"
  * }</pre>
  */
+@TopCommand
 @CommandLine.Command(
         name = "acp-client",
         mixinStandardHelpOptions = true,
         version = "0.1.0-SNAPSHOT",
-        description = "CLI client for any ACP-compatible agent (OpenCode, Claude, Pi, etc.)"
+        description = "CLI client for any ACP-compatible agent (OpenCode, Claude, Pi, etc.)",
+        subcommands = GenerateCompletion.class
 )
 public class AcpAgentCommand implements Runnable {
 
