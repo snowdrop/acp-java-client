@@ -57,7 +57,7 @@ A [JBang catalog](https://www.jbang.dev/documentation/guide/latest/alias_catalog
 
 ```shell
 # Run from the project root using the local catalog
-jbang acp-client@. --prompt "What is 6+6?"
+jbang acp-client --prompt "What is 6+6?"
 
 # Or install the catalog for easier access
 jbang catalog add --name acp .
