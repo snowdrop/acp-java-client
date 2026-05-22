@@ -20,7 +20,7 @@ The project is organized as a multi-module Maven build:
 
 - [JDK 21+](https://openjdk.org/)
 - [Apache Maven 3.9+](https://maven.apache.org/)
-- Any ACP-compatible agent: [OpenCode ACP](https://opencode.ai/docs/acp/), [Claude ACP agent](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp), [Pi ACP](https://www.npmjs.com/package/pi-acp)
+- Any ACP-compatible agent (see [Agents and providers](#agents-and-providers) for the list of some agents and how to install them)
 - (Optional) [JBang](https://www.jbang.dev/) for running the CLI via catalog
 
 ## Build
@@ -130,55 +130,29 @@ java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
   --prompt "Execute the **java-project-discovery** skill. Inspect the workspace root directory, determine the build setup, target Java version, and framework configurations, and return the structured JSON output."
 ```
 
-## Providers
+## Agents and providers
 
-The required environment variables are automatically checked based on the `--provider` value. The client will exit with an error if any are missing.
+### ACP agents
 
-| Provider (`--provider`)  | Environment variables                                                                                                   | Documentation                                                                        |
-|--------------------------|-------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
-| `opencode-zen` (default) | none                                                                                                                    | [OpenCode Zen](https://opencode.ai/docs/zen/)                                       |
-| `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_LOCATION`, `GOOGLE_CLOUD_PROJECT`                                             | [Google Vertex AI](https://opencode.ai/docs/providers/#google-vertex-ai)             |
-| `anthropic-vertex-ai`    | `ANTHROPIC_VERTEX_PROJECT_ID`, `ANTHROPIC_MODEL`, `CLAUDE_CODE_USE_VERTEX`, `CLOUD_ML_REGION`                           | [Anthropic Vertex AI](https://docs.anthropic.com/en/docs/build-with-claude/vertex-ai)|
-| `anthropic`              | `ANTHROPIC_API_KEY`                                                                                                     | [Anthropic](https://docs.anthropic.com/)                                             |
-| `openai`                 | `OPENAI_API_KEY`                                                                                                        | [OpenAI](https://platform.openai.com/docs/)                                         |
+The following ACP-compatible agents can be used with this client. Install the agent you need and pass its binary and args via the `--agent-binary` and `--agent-args` CLI options.
 
-> [!NOTE]
-> By default, opencode agent picks up the free model available on [Zen](https://opencode.ai/docs/zen/): big-pickle
+| Agent       | Binary (`--agent-binary`) | Args (`--agent-args`) | Installation                                                                                                                       |
+|-------------|---------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| OpenCode    | `opencode`                | `acp`                 | See [OpenCode ACP docs](https://opencode.ai/docs/acp/)                                                                            |
+| Claude Code | `claude-agent-acp`        |                       | `npm install -g @agentclientprotocol/claude-agent-acp` ([docs](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp)) |
+| Pi          | `pi-acp`                  |                       | `npm install -g pi-acp` ([docs](https://github.com/svkozak/pi-acp))                                                               |
+| Gemini CLI  | `gemini`                  | `--acp`               | `npm install -g @google/gemini-cli` ([docs](https://geminicli.com/docs/cli/acp-mode/))                                             |
 
-### opencode acp and Google Vertex AI provider
+### Providers
 
-```shell
-export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json
-export VERTEX_LOCATION=<google-location>
-export GOOGLE_CLOUD_PROJECT=<google-project>
+Each agent can be configured with a model provider. The `--provider` option controls which environment variables are validated before connecting. The client will exit with an error if any required variable is missing.
 
-java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --agent-binary opencode \
-  --agent-args acp \
-  --provider google-vertex-ai \
-  --model "google-vertex-anthropic/claude-opus-4-6@default"
-```
-
-### claude acp and Google Vertex AI provider
-
-```shell
-export CLOUD_ML_REGION=<google-location>
-export CLAUDE_CODE_USE_VERTEX=1
-export ANTHROPIC_VERTEX_PROJECT_ID=<google-project>
-
-java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --agent-binary claude-agent-acp \
-  --provider anthropic-vertex-ai \
-  --model claude-opus-4-6
-```
-
-### pi acp
-
-```shell
-java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --agent-binary pi-acp \
-  --prompt "Say Hello"
-```
+| Agent       | Provider (`--provider`)  | Environment variables                                                                       | Documentation                                                                         |
+|-------------|--------------------------|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| OpenCode    | `opencode-zen` (default) | none                                                                                        | [OpenCode Zen](https://opencode.ai/docs/zen/)                                        |
+| OpenCode    | `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_LOCATION`, `GOOGLE_CLOUD_PROJECT`                 | [Google Vertex AI](https://opencode.ai/docs/providers/#google-vertex-ai)              |
+| Claude Code | `anthropic-vertex-ai`    | `ANTHROPIC_VERTEX_PROJECT_ID`, `ANTHROPIC_MODEL`, `CLAUDE_CODE_USE_VERTEX`, `CLOUD_ML_REGION` | [Anthropic Vertex AI](https://docs.anthropic.com/en/docs/build-with-claude/vertex-ai) |
+| Pi          | `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `CLOUD_ML_REGION`                 | [pi-vertex-claude](https://github.com/isaacraja/pi-vertex-claude)                    |
 
 ## Permissions
 
