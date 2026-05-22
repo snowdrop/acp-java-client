@@ -13,6 +13,8 @@ import picocli.AutoComplete.GenerateCompletion;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.LogManager;
 
 /**
  * Picocli CLI command for any ACP-compatible agent (OpenCode, Claude, Pi, etc.).
@@ -87,8 +89,32 @@ public class AcpAgentCommand implements Runnable {
             description = "How to respond to agent permission requests: allow_always, allow_once, reject_once, reject_always [env: ACP_PERMISSION_MODE]")
     String permissionMode;
 
+    @CommandLine.Option(names = {"-l", "--log-level"},
+            description = "Log level: INFO, DEBUG, TRACE, WARNING, SEVERE [env: ACP_LOG_LEVEL]")
+    String logLevel;
+
     @Override
     public void run() {
+        // Configure log level if provided
+        logLevel = resolveOption(logLevel, "ACP_LOG_LEVEL", null);
+        if (logLevel != null && !logLevel.isEmpty()) {
+            Level level = Level.parse(logLevel.toUpperCase());
+            // Set application logger levels
+            java.util.logging.Logger.getLogger("io.quarkiverse").setLevel(level);
+            java.util.logging.Logger.getLogger("io.quarkiverse.acp").setLevel(level);
+            java.util.logging.Logger.getLogger("io.quarkiverse.agentclientprotocol").setLevel(level);
+            // Ensure root logger and handlers allow the level through
+            java.util.logging.Logger rootLogger = java.util.logging.Logger.getLogger("");
+            if (rootLogger.getLevel().intValue() > level.intValue()) {
+                rootLogger.setLevel(level);
+            }
+            for (var handler : rootLogger.getHandlers()) {
+                if (handler.getLevel().intValue() > level.intValue()) {
+                    handler.setLevel(level);
+                }
+            }
+        }
+
         // Resolve options: CLI arg > env var > default
         prompt = resolveOption(prompt, "ACP_PROMPT", "Say Hello");
         model = resolveOption(model, "ACP_MODEL", null);
@@ -145,6 +171,7 @@ public class AcpAgentCommand implements Runnable {
                     ? String.format("Connected to the ACP agent: %s - v%s - %s", agentInfo.name(), agentInfo.version(), title)
                     : String.format("Connected to the ACP agent: %s - v%s", agentInfo.name(), agentInfo.version());
             logger.info(connectedMsg);
+            logger.infof("Protocol version: %s", initResponse.protocolVersion());
             logger.debugf("Capabilities: %s", initResponse.agentCapabilities());
             logger.debugf("Auth methods: %s", initResponse.authMethods());
 
