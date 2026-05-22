@@ -6,8 +6,8 @@ Reference commands for running the ACP Java Client with each supported agent and
 
 - **Build the uber-jar** first with `mvn clean install`
 - Load the environment variables with `dotenv -x .env` or `export KEY=VAR` or `set -x KEY VAR` using the appropriate mechanism of your shell.
-- Have the acp-client installed: `jbang app install --name acp-client io.quarkiverse.ai:acp-java-client:0.1.0-SNAPSHOT:runner`
-- Have the acp compatible installed. See [Agents and providers](README.md#agents-and-providers)
+- Have the JBang Java `acp-client` installed: `jbang app install --name acp-client io.quarkiverse.ai:acp-java-client:0.1.0-SNAPSHOT:runner`
+- Have an ACP compatible client installed: pi, opencode, claude, etc. See [Agents and providers](README.md#agents-and-providers)
 
 ## OpenCode
 
