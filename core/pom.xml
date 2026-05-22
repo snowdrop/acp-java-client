@@ -18,7 +18,7 @@
         <!-- Schema module (versioned schema classes) -->
         <dependency>
             <groupId>io.quarkiverse.ai</groupId>
-            <artifactId>java-acp-schema</artifactId>
+            <artifactId>acp-java-schema</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
 
