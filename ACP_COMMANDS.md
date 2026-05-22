@@ -22,8 +22,8 @@ acp-client \
 ### OpenCode + Vertex AI
 
 ```shell
-export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
-export VERTEX_LOCATION=europe-west1
+export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json
+export VERTEX_LOCATION=<google-location>
 export GOOGLE_CLOUD_PROJECT=<your-gcp-project>
 ```
 
@@ -49,7 +49,7 @@ acp-client \
 ```shell
 export ANTHROPIC_VERTEX_PROJECT_ID=<your-gcp-project>
 export CLAUDE_CODE_USE_VERTEX=1
-export CLOUD_ML_REGION=europe-west1
+export CLOUD_ML_REGION=<google-location>
 ```
 
 ```shell
@@ -95,9 +95,9 @@ acp-client \
 ### Pi + Vertex AI
 
 ```shell
-export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json
+export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json
 export GOOGLE_CLOUD_PROJECT=<your-gcp-project>
-export CLOUD_ML_REGION=europe-west1
+export CLOUD_ML_REGION=<google-location>
 ```
 
 ```shell
