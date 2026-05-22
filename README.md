@@ -53,15 +53,19 @@ java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
 
 ### Running with JBang
 
-A [JBang catalog](https://www.jbang.dev/documentation/guide/latest/alias_catalogs.html) is provided at the project root. After building:
+A [JBang catalog](https://www.jbang.dev/documentation/guide/latest/alias_catalogs.html) is provided at the project root and that you can use when you develop/test. After building:
 
 ```shell
-# Run from the project root using the local catalog
+# Run from the project root using the local catalog and uber jar generated under client/target/ !
 jbang acp-client --prompt "What is 6+6?"
+```
 
-# Or install the catalog for easier access
-jbang catalog add --name acp .
-jbang acp-client@acp --prompt "Say hello"
+If you plan to use the tool outside of this project, then install it using the maven GAV
+```shell
+jbang app install --name acp-client io.quarkiverse.ai:acp-java-client:0.1.0-SNAPSHOT:runner
+
+cd /java/project/to/code/using/ai
+acp-client --prompt "Say hello"
 ```
 
 ### Running with Quarkus dev mode

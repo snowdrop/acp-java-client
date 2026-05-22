@@ -5,10 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.quarkiverse.ai</groupId>
-    <artifactId>java-acp-client-parent</artifactId>
+    <artifactId>acp-java-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <description>Java AI :: Agent Client Protocol :: Parent</description>
+    <description>Agent Client Protocol - Java project</description>
+    <name>AI :: Agent Client Protocol :: Java SDK :: Parent</name>
 
     <licenses>
         <license>
