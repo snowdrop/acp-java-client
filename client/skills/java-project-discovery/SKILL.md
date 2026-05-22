@@ -1,6 +1,6 @@
 ---
 name: java-project-discovery
-description: Analyzes the local workspace directory to identify the Java project's structural layout, build engine (Maven/Gradle), Java runtime version, and core framework dependencies without executing intrusive code.
+description: Analyzes the local workspace directory to identify the Java project's structural layout, build engine (Maven/Gradle), Java runtime version, and core framework dependencies without executing intrusive code. Trigger this skill when the user asking about java project, java discovery, what this java project is about.
 ---
 # Skill: Java Project Discovery & Architectural Audit
 
