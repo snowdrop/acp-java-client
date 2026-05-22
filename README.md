@@ -43,11 +43,11 @@ java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar
 # Custom prompt
 java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar --prompt "What is 6+6?"
 
-# With a specific provider and model
+# With a specific agent, provider, and model
 java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --provider anthropic-vertex-ai \
+  --agent claude \
+  --provider vertex-ai \
   --model claude-opus-4-6 \
-  --agent-binary claude-agent-acp \
   --prompt "Say hello"
 ```
 
@@ -99,39 +99,47 @@ Hello
 
 All options support environment variable fallback. Precedence: **CLI argument > environment variable > default value**.
 
-| Option               | Env Variable          | Description                                                     | Default        |
-|----------------------|-----------------------|-----------------------------------------------------------------|----------------|
-| `-p`, `--prompt`     | `ACP_PROMPT`          | The prompt text to send to the agent                            | `Say Hello`    |
-| `--provider`         | `ACP_PROVIDER`        | The provider name for env variable checks (see below)           | `opencode-zen` |
-| `-m`, `--model`      | `ACP_MODEL`           | The model to use (see available models in session config)       |                |
-| `--agent-binary`     | `ACP_AGENT_BINARY`    | The agent command (binary) to launch                            | `opencode`     |
-| `--agent-args`       | `ACP_AGENT_ARGS`      | Comma-separated arguments passed to the agent command           | `acp`          |
-| `--request-timeout`  | `ACP_REQUEST_TIMEOUT` | Timeout in seconds for steps: initialize, create session, etc.  | `30`           |
-| `--prompt-timeout`   | `ACP_PROMPT_TIMEOUT`  | Timeout in seconds for prompt requests; 0 means no timeout      | `0`            |
-| `--permission-mode`  | `ACP_PERMISSION_MODE` | How to respond to agent permission requests (see below)         | `allow_always` |
-| `-h`, `--help`       |                       | Show help message and exit                                      |                |
-| `-V`, `--version`    |                       | Print version info and exit                                     |                |
+| Option               | Env Variable          | Description                                                       | Default        |
+|----------------------|-----------------------|-------------------------------------------------------------------|----------------|
+| `-a`, `--agent`      | `ACP_AGENT`           | ACP agent: `opencode`, `claude`, `pi`, `gemini`                   | `opencode`     |
+| `-p`, `--prompt`     | `ACP_PROMPT`          | The prompt text to send to the agent                              | `Say Hello`    |
+| `--provider`         | `ACP_PROVIDER`        | Provider: `zen`, `vertex-ai`                                      | `zen`          |
+| `-m`, `--model`      | `ACP_MODEL`           | The model to use, e.g. `claude-opus-4-6` (resolved per agent/provider) |            |
+| `--agent-binary`     | `ACP_AGENT_BINARY`    | Override agent binary path (for custom agents)                    |                |
+| `--agent-args`       | `ACP_AGENT_ARGS`      | Override agent arguments (for custom agents)                      |                |
+| `--request-timeout`  | `ACP_REQUEST_TIMEOUT` | Timeout in seconds for steps: initialize, create session, etc.    | `30`           |
+| `--prompt-timeout`   | `ACP_PROMPT_TIMEOUT`  | Timeout in seconds for prompt requests; 0 means no timeout        | `0`            |
+| `--permission-mode`  | `ACP_PERMISSION_MODE` | How to respond to agent permission requests (see below)           | `allow_always` |
+| `-l`, `--log-level`  | `ACP_LOG_LEVEL`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`          | `INFO`         |
+| `-h`, `--help`       |                       | Show help message and exit                                        |                |
+| `-V`, `--version`    |                       | Print version info and exit                                       |                |
+
+The `--agent` option resolves the binary and arguments automatically from a built-in registry. For custom or unsupported agents, use `--agent-binary` and `--agent-args` instead.
+
+When using `--agent opencode` with `--provider vertex-ai`, simple model names are resolved automatically:
+`--model claude-opus-4-6` becomes `google-vertex-anthropic/claude-opus-4-6@default`.
 
 ### Examples
 
 ```shell
-# Using CLI arguments
-java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --prompt "Read the skills/dummy/SKILL.md instructions and say hello."
+# OpenCode with Zen (default agent + provider)
+acp-client --prompt "Say Hello"
+
+# Claude Code with Vertex AI
+acp-client --agent claude --provider vertex-ai --model claude-opus-4-6 \
+  --prompt "Say Hello"
 
 # Using environment variables
-export ACP_PROVIDER=anthropic-vertex-ai
+export ACP_AGENT=claude
+export ACP_PROVIDER=vertex-ai
 export ACP_MODEL=claude-opus-4-6
-export ACP_AGENT_BINARY=claude-agent-acp
-java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --prompt "Execute the java-project-discovery skill."
+acp-client --prompt "Execute the java-project-discovery skill."
 
-# Analyze a java project
-java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
-  --provider anthropic-vertex-ai \
-  --model claude-opus-4-6 \
-  --agent-binary claude-agent-acp \
-  --prompt "Execute the **java-project-discovery** skill. Inspect the workspace root directory, determine the build setup, target Java version, and framework configurations, and return the structured JSON output."
+# Gemini CLI
+acp-client --agent gemini --prompt "Say Hello"
+
+# Custom agent binary
+acp-client --agent-binary my-agent --agent-args "serve" --prompt "Say Hello"
 ```
 
 ## Agents and providers
@@ -151,12 +159,13 @@ The following ACP-compatible agents can be used with this client. Install the ag
 
 Each agent can be configured with a model provider. The `--provider` option controls which environment variables are validated before connecting. The client will exit with an error if any required variable is missing.
 
-| Agent       | Provider (`--provider`)  | Environment variables                                                                       | Documentation                                                                         |
-|-------------|--------------------------|---------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| OpenCode    | `opencode-zen` (default) | none                                                                                        | [OpenCode Zen](https://opencode.ai/docs/zen/)                                        |
-| OpenCode    | `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_LOCATION`, `GOOGLE_CLOUD_PROJECT`                 | [Google Vertex AI](https://opencode.ai/docs/providers/#google-vertex-ai)              |
-| Claude Code | `anthropic-vertex-ai`    | `ANTHROPIC_VERTEX_PROJECT_ID`, `ANTHROPIC_MODEL`, `CLAUDE_CODE_USE_VERTEX`, `CLOUD_ML_REGION` | [Anthropic Vertex AI](https://docs.anthropic.com/en/docs/build-with-claude/vertex-ai) |
-| Pi          | `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `CLOUD_ML_REGION`                 | [pi-vertex-claude](https://github.com/isaacraja/pi-vertex-claude)                    |
+| Agent       | Provider (`--provider`) | Environment variables                                                                         | Documentation                                                                         |
+|-------------|-------------|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| OpenCode    | `zen` (default) | none                                                                                          | [OpenCode Zen](https://opencode.ai/docs/zen/)                                        |
+| OpenCode    | `vertex-ai` | `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_LOCATION`, `GOOGLE_CLOUD_PROJECT`                   | [Google Vertex AI](https://opencode.ai/docs/providers/#google-vertex-ai)              |
+| Claude Code | `vertex-ai` | `ANTHROPIC_VERTEX_PROJECT_ID`, `ANTHROPIC_MODEL`, `CLAUDE_CODE_USE_VERTEX`, `CLOUD_ML_REGION` | [Anthropic Vertex AI](https://docs.anthropic.com/en/docs/build-with-claude/vertex-ai) |
+| Pi          | `vertex-ai` | `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`, `CLOUD_ML_REGION`                   | [pi-vertex-claude](https://github.com/isaacraja/pi-vertex-claude)                    |
+| Gemini CLI  | `vertex-ai` | `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`                                               | [Gemini CLI ACP mode](https://geminicli.com/docs/cli/acp-mode/)                      |
 
 ## Permissions
 
