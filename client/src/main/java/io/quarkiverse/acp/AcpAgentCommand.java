@@ -14,10 +14,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
 
 /**
- * Picocli CLI command for any ACP-compatible agent (OpenCode, Claude, Pi, etc.).
+ * Picocli CLI command for any ACP-compatible agent (OpenCode, Claude, Pi, Gemini, etc.).
  *
  * <p>Connects to an ACP agent over stdio, initializes a session,
  * sends a prompt, and streams session updates (thoughts, messages, tool calls, plans)
@@ -28,15 +27,11 @@ import java.util.logging.LogManager;
  *
  * <p>Usage:
  * <pre>{@code
- * # Using the uber-jar
- * java -jar acp-client-runner.jar --prompt "What is 6+6?"
+ * # Using a known agent (resolves binary and args automatically)
+ * acp-client --agent claude --provider vertex-ai --model claude-opus-4-6 --prompt "Say hello"
  *
- * # With a specific provider and model
- * java -jar acp-client-runner.jar \
- *   --provider anthropic-vertex-ai \
- *   --model claude-opus-4-6 \
- *   --agent-binary claude-agent-acp \
- *   --prompt "Say hello"
+ * # Using a custom agent binary
+ * acp-client --agent-binary my-agent --agent-args "serve" --prompt "Say hello"
  * }</pre>
  */
 @TopCommand
@@ -44,38 +39,66 @@ import java.util.logging.LogManager;
         name = "acp-client",
         mixinStandardHelpOptions = true,
         version = "0.1.0-SNAPSHOT",
-        description = "CLI client for any ACP-compatible agent (OpenCode, Claude, Pi, etc.)",
+        description = "CLI client for any ACP-compatible agent (OpenCode, Claude, Pi, Gemini, etc.)",
         subcommands = GenerateCompletion.class
 )
 public class AcpAgentCommand implements Runnable {
 
     private static final Logger logger = Logger.getLogger(AcpAgentCommand.class);
 
-    /** Buffer for accumulating streamed thought chunks into a single log line. */
-    private final StringBuilder thoughtBuffer = new StringBuilder();
+    // ── Agent registry ──────────────────────────────────────────────────────
+    // Maps friendly agent names to their binary and default arguments.
 
-    /** Tracks whether agent message text was printed, so we can add a newline before the next log line. */
+    private record AgentDef(String binary, String args) {}
+
+    private static final Map<String, AgentDef> AGENT_REGISTRY = Map.of(
+            "opencode", new AgentDef("opencode", "acp"),
+            "claude",   new AgentDef("claude-agent-acp", null),
+            "pi",       new AgentDef("pi-acp", null),
+            "gemini",   new AgentDef("gemini", "--acp")
+    );
+
+    // ── Provider env-var requirements per agent + provider ──────────────────
+    // Key format: "agent:provider". Checked before launching the agent.
+
+    private static final Map<String, List<String>> PROVIDER_ENV_VARS = Map.ofEntries(
+            Map.entry("opencode:zen",       List.of()),
+            Map.entry("opencode:vertex-ai", List.of("GOOGLE_APPLICATION_CREDENTIALS", "VERTEX_LOCATION", "GOOGLE_CLOUD_PROJECT")),
+            Map.entry("claude:vertex-ai",   List.of("ANTHROPIC_VERTEX_PROJECT_ID", "CLAUDE_CODE_USE_VERTEX", "CLOUD_ML_REGION")),
+            Map.entry("pi:vertex-ai",       List.of("GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT", "CLOUD_ML_REGION")),
+            Map.entry("gemini:vertex-ai",   List.of("GOOGLE_CLOUD_PROJECT"))
+    );
+
+    // ── Instance state ──────────────────────────────────────────────────────
+
+    private final StringBuilder thoughtBuffer = new StringBuilder();
     private volatile boolean messageOutputPending = false;
+
+    // ── CLI options ─────────────────────────────────────────────────────────
+
+    @CommandLine.Option(names = {"-a", "--agent"},
+            description = "ACP agent: opencode, claude, pi, gemini [env: ACP_AGENT]")
+    String agent;
+
+    @CommandLine.Option(names = {"--agent-binary"},
+            description = "Override agent binary path (for custom agents) [env: ACP_AGENT_BINARY]")
+    String acpAgentBinary;
+
+    @CommandLine.Option(names = {"--agent-args"},
+            description = "Override agent arguments (for custom agents) [env: ACP_AGENT_ARGS]")
+    String acpAgentArgs;
 
     @CommandLine.Option(names = {"-p", "--prompt"},
             description = "The prompt text to send to the agent [env: ACP_PROMPT]")
     String prompt;
 
     @CommandLine.Option(names = {"-m", "--model"},
-            description = "The model to use (see available models in session config) [env: ACP_MODEL]")
+            description = "The model to use, e.g. claude-opus-4-6 (resolved per agent/provider) [env: ACP_MODEL]")
     String model;
 
     @CommandLine.Option(names = {"--provider"},
-            description = "The provider name: opencode-zen, google-vertex-ai, anthropic-vertex-ai, anthropic, openai [env: ACP_PROVIDER]")
+            description = "Provider: zen, vertex-ai [env: ACP_PROVIDER]")
     String provider;
-
-    @CommandLine.Option(names = {"--agent-binary"},
-            description = "The agent command (binary) to launch [env: ACP_AGENT_BINARY]")
-    String acpAgentBinary;
-
-    @CommandLine.Option(names = {"--agent-args"},
-            description = "Comma-separated arguments passed to the agent command [env: ACP_AGENT_ARGS]")
-    String acpAgentArgs;
 
     @CommandLine.Option(names = {"--request-timeout"},
             description = "Timeout in seconds for requests (initialize, create session, etc.) [env: ACP_REQUEST_TIMEOUT]")
@@ -99,11 +122,9 @@ public class AcpAgentCommand implements Runnable {
         logLevel = resolveOption(logLevel, "ACP_LOG_LEVEL", null);
         if (logLevel != null && !logLevel.isEmpty()) {
             Level level = Level.parse(logLevel.toUpperCase());
-            // Set application logger levels
             java.util.logging.Logger.getLogger("io.quarkiverse").setLevel(level);
             java.util.logging.Logger.getLogger("io.quarkiverse.acp").setLevel(level);
             java.util.logging.Logger.getLogger("io.quarkiverse.agentclientprotocol").setLevel(level);
-            // Ensure root logger and handlers allow the level through
             java.util.logging.Logger rootLogger = java.util.logging.Logger.getLogger("");
             if (rootLogger.getLevel().intValue() > level.intValue()) {
                 rootLogger.setLevel(level);
@@ -117,12 +138,44 @@ public class AcpAgentCommand implements Runnable {
 
         // Resolve options: CLI arg > env var > default
         prompt = resolveOption(prompt, "ACP_PROMPT", "Say Hello");
-        model = resolveOption(model, "ACP_MODEL", null);
-        provider = resolveOption(provider, "ACP_PROVIDER", "opencode-zen");
-        acpAgentBinary = resolveOption(acpAgentBinary, "ACP_AGENT_BINARY", "opencode");
-        acpAgentArgs = resolveOption(acpAgentArgs, "ACP_AGENT_ARGS", "acp");
         permissionMode = resolveOption(permissionMode, "ACP_PERMISSION_MODE", "allow_always");
 
+        // ── Resolve agent binary and args ────────────────────────────────
+        agent = resolveOption(agent, "ACP_AGENT", "opencode");
+        acpAgentBinary = resolveOption(acpAgentBinary, "ACP_AGENT_BINARY", null);
+        acpAgentArgs = resolveOption(acpAgentArgs, "ACP_AGENT_ARGS", null);
+
+        String binary;
+        String args;
+        if (acpAgentBinary != null) {
+            // Explicit binary override — use it directly
+            binary = acpAgentBinary;
+            args = acpAgentArgs;
+        } else {
+            AgentDef agentDef = AGENT_REGISTRY.get(agent);
+            if (agentDef != null) {
+                binary = agentDef.binary();
+                args = acpAgentArgs != null ? acpAgentArgs : agentDef.args();
+            } else {
+                System.err.println("ERROR: Unknown agent '" + agent
+                        + "'. Known agents: " + AGENT_REGISTRY.keySet()
+                        + ". Use --agent-binary for custom agents.");
+                System.exit(1);
+                return;
+            }
+        }
+
+        // ── Resolve and normalize provider ───────────────────────────────
+        provider = resolveOption(provider, "ACP_PROVIDER", "zen");
+        provider = normalizeProvider(provider);
+
+        // ── Resolve model name ───────────────────────────────────────────
+        model = resolveOption(model, "ACP_MODEL", null);
+        if (model != null) {
+            model = resolveModelName(agent, provider, model);
+        }
+
+        // ── Timeouts ─────────────────────────────────────────────────────
         String reqTimeoutStr = resolveOption(
                 requestTimeout != null ? requestTimeout.toString() : null,
                 "ACP_REQUEST_TIMEOUT", "30");
@@ -134,18 +187,20 @@ public class AcpAgentCommand implements Runnable {
         long promptTimeoutSecs = Long.parseLong(promptTimeoutStr);
         Duration pTimeout = promptTimeoutSecs > 0 ? Duration.ofSeconds(promptTimeoutSecs) : null;
 
-        // 0. Check for required env variables based on the provider
-        checkProviderEnv(provider);
+        // 0. Check for required env variables based on agent + provider
+        checkProviderEnv(agent, provider);
 
         // 1. Configure agent parameters
-        var builder = AgentParameters.builder(acpAgentBinary);
-        for (String a : acpAgentArgs.split(",")) {
-            String trimmed = a.trim();
-            if (!trimmed.isEmpty()) {
-                builder.arg(trimmed);
+        var paramBuilder = AgentParameters.builder(binary);
+        if (args != null && !args.isEmpty()) {
+            for (String a : args.split(",")) {
+                String trimmed = a.trim();
+                if (!trimmed.isEmpty()) {
+                    paramBuilder.arg(trimmed);
+                }
             }
         }
-        var params = builder.build();
+        var params = paramBuilder.build();
 
         // 2. Create transport
         var transport = new StdioAcpClientTransport(params);
@@ -163,7 +218,7 @@ public class AcpAgentCommand implements Runnable {
                 .permissionRequestHandler(request -> handlePermissionRequest(request, permMode))
                 .build()) {
 
-            // 4. Initialize - handshake with the agent
+            // 4. Initialize — handshake with the agent
             var initResponse = client.initialize();
             var agentInfo = initResponse.agentInfo();
             String title = agentInfo.title();
@@ -180,15 +235,32 @@ public class AcpAgentCommand implements Runnable {
             var sessionId = session.sessionId();
             logger.infof("Session created: %s", sessionId);
 
+            // Log the agent's default model from session config
+            if (session.configOptions() != null) {
+                session.configOptions().stream()
+                        .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                        .findFirst()
+                        .ifPresent(opt -> logger.infof("Agent model: %s", opt.currentValue()));
+            }
+
             // 6. Set the model (only if explicitly provided)
             if (model != null && !model.isEmpty()) {
-                var configResponse = client.setConfigOption(
-                        new SetSessionConfigOptionRequest("model", sessionId, model));
-                if (configResponse.configOptions() != null) {
-                    configResponse.configOptions().stream()
-                            .filter(opt -> "model".equalsIgnoreCase(opt.id()))
-                            .findFirst()
-                            .ifPresent(opt -> logger.infof("Model: %s", opt.currentValue()));
+                try {
+                    var configResponse = client.setConfigOption(
+                            new SetSessionConfigOptionRequest("model", sessionId, model));
+                    if (configResponse.configOptions() != null) {
+                        configResponse.configOptions().stream()
+                                .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                                .findFirst()
+                                .ifPresent(opt -> logger.infof("Model set to: %s", opt.currentValue()));
+                    }
+                } catch (RuntimeException e) {
+                    if (e.getMessage() != null && e.getMessage().contains("-32601")) {
+                        logger.warnf("Agent does not support session/set_config_option — skipping model configuration. "
+                                + "The agent will use its default model.");
+                    } else {
+                        throw e;
+                    }
                 }
             }
 
@@ -214,14 +286,46 @@ public class AcpAgentCommand implements Runnable {
         }
     }
 
+    // ── Provider normalization ───────────────────────────────────────────────
+
     /**
-     * Resolves an option value with precedence: CLI arg &gt; env var &gt; default.
-     *
-     * @param cliValue     the value from the CLI option (may be null)
-     * @param envVar       the environment variable name to check
-     * @param defaultValue the default value if neither CLI nor env var is set
-     * @return the resolved value
+     * Normalizes legacy provider names to their canonical form.
+     * <ul>
+     *   <li>{@code opencode-zen} &rarr; {@code zen}</li>
+     *   <li>{@code google-vertex-ai}, {@code anthropic-vertex-ai} &rarr; {@code vertex-ai}</li>
+     * </ul>
      */
+    private static String normalizeProvider(String provider) {
+        return switch (provider) {
+            case "opencode-zen","zen"      -> "zen";
+            case "vertex-ai","google-vertex-ai",
+                 "anthropic-vertex-ai" -> "vertex-ai";
+            default                  -> provider;
+        };
+    }
+
+    // ── Model name resolution ────────────────────────────────────────────────
+
+    /**
+     * Resolves a simple model name to the full provider-specific model path.
+     * If the model already contains a {@code /}, it is returned as-is.
+     *
+     * <p>Currently only OpenCode + vertex-ai transforms the name:
+     * {@code claude-opus-4-6} &rarr; {@code google-vertex-anthropic/claude-opus-4-6@default}
+     */
+    private static String resolveModelName(String agent, String provider, String model) {
+        // Already a fully-qualified model path — return as-is
+        if (model.contains("/")) {
+            return model;
+        }
+        if ("opencode".equals(agent) && "vertex-ai".equals(provider)) {
+            return "google-vertex-anthropic/" + model + "@default";
+        }
+        return model;
+    }
+
+    // ── Option resolution ────────────────────────────────────────────────────
+
     private static String resolveOption(String cliValue, String envVar, String defaultValue) {
         if (cliValue != null && !cliValue.isEmpty()) {
             return cliValue;
@@ -233,24 +337,18 @@ public class AcpAgentCommand implements Runnable {
         return defaultValue;
     }
 
-    /**
-     * Handles a session update notification by dispatching on the update's runtime type.
-     *
-     * @param updateType the {@code sessionUpdate} discriminator string (e.g. {@code "agent_message_chunk"})
-     * @param update     the deserialized update object
-     */
+    // ── Session update handling ──────────────────────────────────────────────
+
     private void handleSessionUpdate(String updateType, Object update) {
         if (update == null) {
             logger.debug("[Update] null");
             return;
         }
 
-        // Flush buffered thoughts when a different update type arrives
         if (!"agent_thought_chunk".equals(updateType)) {
             flushThoughts();
         }
 
-        // Add a newline after message output before the next log line
         if (!"agent_message_chunk".equals(updateType) && messageOutputPending) {
             System.out.println();
             messageOutputPending = false;
@@ -261,7 +359,6 @@ public class AcpAgentCommand implements Runnable {
                 if ("agent_thought_chunk".equals(updateType)) {
                     thoughtBuffer.append(extractText(chunk.content()));
                 } else {
-                    // Agent message text is always printed (primary output)
                     System.out.print(extractText(chunk.content()));
                     messageOutputPending = true;
                 }
@@ -270,12 +367,10 @@ public class AcpAgentCommand implements Runnable {
                 logger.infof("[Plan] %d steps:", plan.entries().size());
                 plan.entries().forEach(e -> logger.infof("  - %s [%s]", e.content(), e.status()));
             }
-            case ToolCall tool -> {
+            case ToolCall tool ->
                 logger.infof("[ToolCall] %s (%s) - %s", tool.title(), tool.kind(), tool.status());
-            }
-            case ToolCallUpdate toolUpdate -> {
+            case ToolCallUpdate toolUpdate ->
                 logger.infof("[ToolUpdate] %s - %s", toolUpdate.title(), toolUpdate.status());
-            }
             case AvailableCommandsUpdate commands -> {
                 logger.info("[Commands] Available:");
                 commands.availableCommands()
@@ -301,9 +396,6 @@ public class AcpAgentCommand implements Runnable {
         }
     }
 
-    /**
-     * Flushes accumulated thought chunks as a single log line.
-     */
     private void flushThoughts() {
         if (!thoughtBuffer.isEmpty()) {
             logger.debugf("[Thought] %s", thoughtBuffer.toString().strip());
@@ -311,13 +403,6 @@ public class AcpAgentCommand implements Runnable {
         }
     }
 
-    /**
-     * Extracts the text value from a content object.
-     * The content is typically deserialized as a {@code Map} with a {@code "text"} key.
-     *
-     * @param content the raw content object from a {@link ContentChunk}
-     * @return the text string, or an empty string if unavailable
-     */
     private static String extractText(Object content) {
         if (content instanceof Map<?,?> map) {
             Object text = map.get("text");
@@ -326,24 +411,16 @@ public class AcpAgentCommand implements Runnable {
         return content != null ? content.toString() : "";
     }
 
-    /**
-     * Handles a permission request from the agent by selecting the option
-     * matching the configured permission mode.
-     *
-     * @param request        the permission request with available options
-     * @param permissionMode the desired permission mode (e.g. {@code "allow_always"}, {@code "allow_once"})
-     * @return the response with the selected option
-     */
+    // ── Permission handling ──────────────────────────────────────────────────
+
     private static RequestPermissionResponse handlePermissionRequest(RequestPermissionRequest request, String permissionMode) {
         var toolCall = request.toolCall();
         logger.infof("[Permission] %s requests: %s", toolCall.title(), toolCall.kind());
 
-        // Find the option matching the configured permission mode
         String selectedOptionId = request.options().stream()
                 .filter(o -> o.kind().getValue().equals(permissionMode))
                 .findFirst()
                 .map(PermissionOption::optionId)
-                // Fallback: first allow option, then first option
                 .orElseGet(() -> request.options().stream()
                         .filter(o -> o.kind() == PermissionOptionKind.ALLOW_ALWAYS
                                 || o.kind() == PermissionOptionKind.ALLOW_ONCE)
@@ -355,29 +432,24 @@ public class AcpAgentCommand implements Runnable {
         return new RequestPermissionResponse(new SelectedPermissionOutcome(selectedOptionId));
     }
 
+    // ── Provider env-var validation ──────────────────────────────────────────
+
     /**
-     * Checks that the required environment variables are set for the given provider.
-     * Exits with an error if any are missing.
-     *
-     * @param provider the provider name
+     * Checks required environment variables for the given agent + provider combination.
      */
-    private static void checkProviderEnv(String provider) {
-        switch (provider) {
-            case "google-vertex-ai" -> {
-                requireEnv("GOOGLE_APPLICATION_CREDENTIALS", "Google Vertex AI");
-                requireEnv("VERTEX_LOCATION", "Google Vertex AI");
-                requireEnv("GOOGLE_CLOUD_PROJECT", "Google Vertex AI");
+    private static void checkProviderEnv(String agent, String provider) {
+        String key = agent + ":" + provider;
+        List<String> requiredVars = PROVIDER_ENV_VARS.get(key);
+
+        if (requiredVars == null) {
+            if (!"zen".equals(provider)) {
+                logger.warnf("No env var requirements defined for agent '%s' with provider '%s'", agent, provider);
             }
-            case "anthropic-vertex-ai" -> {
-                requireEnv("ANTHROPIC_VERTEX_PROJECT_ID", "Anthropic Vertex AI");
-                requireEnv("ANTHROPIC_MODEL", "Anthropic Vertex AI");
-                requireEnv("CLAUDE_CODE_USE_VERTEX", "Anthropic Vertex AI");
-                requireEnv("CLOUD_ML_REGION", "Anthropic Vertex AI");
-            }
-            case "anthropic" -> requireEnv("ANTHROPIC_API_KEY", "Anthropic");
-            case "openai" -> requireEnv("OPENAI_API_KEY", "OpenAI");
-            case "opencode-zen" -> { /* no env vars required */ }
-            default -> logger.warnf("Unknown provider '%s', skipping env variable checks", provider);
+            return;
+        }
+
+        for (String varName : requiredVars) {
+            requireEnv(varName, provider);
         }
     }
 

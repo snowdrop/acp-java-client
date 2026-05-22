@@ -139,15 +139,33 @@ public class AcpAgentCli {
             var session = client.newSession(new NewSessionRequest(System.getProperty("user.dir"), List.of()));
             var sessionId = session.sessionId();
             logger.info("Session created: {}", sessionId);
+
+            // Log the agent's default model from session config
+            if (session.configOptions() != null) {
+                session.configOptions().stream()
+                        .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                        .findFirst()
+                        .ifPresent(opt -> logger.info("Agent model: {}", opt.currentValue()));
+            }
+
             // 6. Set the model (only if explicitly provided via -Dmodel)
             if (model != null) {
-                var configResponse = client.setConfigOption(
-                        new SetSessionConfigOptionRequest("model", sessionId, model));
-                if (configResponse.configOptions() != null) {
-                    configResponse.configOptions().stream()
-                            .filter(opt -> "model".equalsIgnoreCase(opt.id()))
-                            .findFirst()
-                            .ifPresent(opt -> logger.info("Model: {}", opt.currentValue()));
+                try {
+                    var configResponse = client.setConfigOption(
+                            new SetSessionConfigOptionRequest("model", sessionId, model));
+                    if (configResponse.configOptions() != null) {
+                        configResponse.configOptions().stream()
+                                .filter(opt -> "model".equalsIgnoreCase(opt.id()))
+                                .findFirst()
+                                .ifPresent(opt -> logger.info("Model set to: {}", opt.currentValue()));
+                    }
+                } catch (RuntimeException e) {
+                    if (e.getMessage() != null && e.getMessage().contains("-32601")) {
+                        logger.warn("Agent does not support session/set_config_option — skipping model configuration. "
+                                + "The agent will use its default model.");
+                    } else {
+                        throw e;
+                    }
                 }
             }
 
