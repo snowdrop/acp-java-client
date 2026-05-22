@@ -6,12 +6,13 @@
 
     <parent>
         <groupId>io.quarkiverse.ai</groupId>
-        <artifactId>java-acp-client-parent</artifactId>
+        <artifactId>acp-java-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>acp-core</artifactId>
-    <description>AI :: Agent Client Protocol :: Java Spec Core</description>
+    <artifactId>acp-java-core</artifactId>
+    <description>Java ACP Core library: client stdio, transport</description>
+    <name>AI :: Agent Client Protocol :: Java Core library</name>
 
     <dependencies>
         <!-- Schema module (versioned schema classes) -->

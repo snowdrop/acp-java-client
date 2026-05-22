@@ -1,0 +1,8 @@
+{
+  "aliases": {
+    "acp-client": {
+      "script-ref": "client/target/acp-java-client-0.1.0-SNAPSHOT-runner.jar",
+      "description": "ACP Java Client - CLI for any ACP-compatible agent"
+    }
+  }
+}

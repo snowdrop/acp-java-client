@@ -6,12 +6,13 @@
 
     <parent>
         <groupId>io.quarkiverse.ai</groupId>
-        <artifactId>java-acp-client-parent</artifactId>
+        <artifactId>acp-java-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>acp-schema</artifactId>
-    <description>AI :: Agent Client Protocol :: Schema</description>
+    <artifactId>acp-java-schema</artifactId>
+    <description>Java ACP Schema and class/Record generator</description>
+    <name>AI :: Agent Client Protocol :: Schema - Java Generator</name>
 
     <dependencies>
         <!-- Jackson for @JsonProperty / @JsonValue annotations in generated classes -->

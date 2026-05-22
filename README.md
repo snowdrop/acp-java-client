@@ -14,79 +14,127 @@ The project is organized as a multi-module Maven build:
 |----------|-----------------|------------------------------------------------------------------------------------------------------------------|
 | `schema` | `acp-schema`    | ACP JSON Schema (`v1`), generated Java records/enums, and `JSonSchemaGenerator` code generator                   |
 | `core`   | `acp-core` | ACP implementation library: `AcpClient`, `AcpAsyncClient`, `AcpSyncClient`, stdio transport. Depends on `schema` |
-| `client` | `acp-client` | CLI example (`AcpAgentCli`), skills, and sandbox. Depends on `core`                                              |
+| `client` | `acp-client` | Picocli CLI (`AcpAgentCommand`), skills, and sandbox. Depends on `core`. Built as Quarkus uber-jar              |
 
 ## Prerequisites
 
 - [JDK 21+](https://openjdk.org/)
 - [Apache Maven 3.9+](https://maven.apache.org/)
 - Any ACP-compatible agent: [OpenCode ACP](https://opencode.ai/docs/acp/), [Claude ACP agent](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp), [Pi ACP](https://www.npmjs.com/package/pi-acp)
+- (Optional) [JBang](https://www.jbang.dev/) for running the CLI via catalog
+
+## Build
+
+Compile the project and build the uber-jar:
+```shell
+mvn clean install
+```
+
+The uber-jar is produced at `client/target/acp-client-0.1.0-SNAPSHOT-runner.jar`.
 
 ## Usage
 
-Compile the project and run the `mvn exec:exec` command from the `client` module:
+### Running with `java -jar`
+
 ```shell
-mvn clean install
-mvn exec:exec -pl client # Default prompt: Say Hello
-mvn exec:exec -pl client -Dprompt="What is 6+6?"
+# Default prompt: "Say Hello" with OpenCode agent
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar
+
+# Custom prompt
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar --prompt "What is 6+6?"
+
+# With a specific provider and model
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --provider anthropic-vertex-ai \
+  --model claude-opus-4-6 \
+  --agent-binary claude-agent-acp \
+  --prompt "Say hello"
 ```
-and look within your terminal to the response that you got:
+
+### Running with JBang
+
+A [JBang catalog](https://www.jbang.dev/documentation/guide/latest/alias_catalogs.html) is provided at the project root and that you can use when you develop/test. After building:
+
 ```shell
-[INFO] --- exec:3.6.3:exec (default-cli) @ acp-client-cli ---
+# Run from the project root using the local catalog and uber jar generated under client/target/ !
+jbang acp-client --prompt "What is 6+6?"
+```
+
+If you plan to use the tool outside of this project, then install it using the maven GAV
+```shell
+jbang app install --name acp-client io.quarkiverse.ai:acp-java-client:0.1.0-SNAPSHOT:runner
+
+cd /java/project/to/code/using/ai
+acp-client --prompt "Say hello"
+```
+
+### Running with Quarkus dev mode
+
+```shell
+mvn quarkus:dev -pl client -Dquarkus.args="--prompt 'Say Hello'"
+```
+
+### Example output
+
+```shell
 11:11:57,492 INFO  [StdioAcpClientTransport] ACP agent starting
-11:11:57,522 INFO  [StdioAcpClientTransport] ACP agent started                                                                                                                                                   
-11:11:58,435 INFO  [AcpAgentCli] Connected to the ACP agent: OpenCode - v1.15.4                                                                                                                                  
-11:11:58,613 INFO  [AcpAgentCli] Session created: ses_1b631ae8bffegMSoAYKMCI6cUc                                                                                                                                 
-11:11:58,619 INFO  [AcpAgentCli] [Commands] Available:                                                                                                                                                           
-11:11:58,622 INFO  [AcpAgentCli] Model: opencode/big-pickle                                                                                                                                                      
-11:11:58,623 INFO  [AcpAgentCli] Sending prompt: Say Hello                                                                                                                                                       
-Here is the AI response:                                                                                                                                                                                         
+11:11:57,522 INFO  [StdioAcpClientTransport] ACP agent started
+11:11:58,435 INFO  [AcpAgentCommand] Connected to the ACP agent: OpenCode - v1.15.4
+11:11:58,613 INFO  [AcpAgentCommand] Session created: ses_1b631ae8bffegMSoAYKMCI6cUc
+11:11:58,619 INFO  [AcpAgentCommand] [Commands] Available:
+11:11:58,622 INFO  [AcpAgentCommand] Model: opencode/big-pickle
+11:11:58,623 INFO  [AcpAgentCommand] Sending prompt: Say Hello
+Here is the AI response:
 Hello
-11:12:00,661 INFO  [AcpAgentCli] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}
-11:12:00,665 INFO  [AcpAgentCli] Done! Stop reason: END_TURN                                                                                                                                                     
-11:12:00,676 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)                                                                                                                           
-[INFO] ------------------------------------------------------------------------ 
+11:12:00,661 INFO  [AcpAgentCommand] [Usage] used=8081 size=200000 cost={amount=0, currency=USD}
+11:12:00,665 INFO  [AcpAgentCommand] Done! Stop reason: END_TURN
+11:12:00,676 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)
 ```
 
-### Parameters
+## CLI options
 
-| Parameter          | Description                                                    | Default        |
-|--------------------|----------------------------------------------------------------|----------------|
-| `-Dprompt`         | The prompt text to send to the agent                           | `Say Hello`    |
-| `-Dprovider`       | The provider name for env variable checks (see below)          | `opencode-zen` |
-| `-Dmodel`          | The model to use (see available models in session config)      | ``             |
-| `-DacpAgentBinary` | The agent command (binary) to launch                           | `opencode`     |
-| `-DacpAgentArgs`   | Comma-separated arguments passed to the agent command          | `acp`          |
-| `-DrequestTimeout` | Timeout in seconds for steps: initialize, create session, etc  | `30`           |
-| `-DpromptTimeout`  | Timeout in seconds for prompt requests; unset means no timeout | no timeout     |
-| `-DlogLevel`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`       | `INFO`         |
-| `-DpermissionMode` | How to respond to agent permission requests (see below)        | `allow_always` |
+All options support environment variable fallback. Precedence: **CLI argument > environment variable > default value**.
 
-The parameters must be passed to the maven command as such:
+| Option               | Env Variable          | Description                                                     | Default        |
+|----------------------|-----------------------|-----------------------------------------------------------------|----------------|
+| `-p`, `--prompt`     | `ACP_PROMPT`          | The prompt text to send to the agent                            | `Say Hello`    |
+| `--provider`         | `ACP_PROVIDER`        | The provider name for env variable checks (see below)           | `opencode-zen` |
+| `-m`, `--model`      | `ACP_MODEL`           | The model to use (see available models in session config)       |                |
+| `--agent-binary`     | `ACP_AGENT_BINARY`    | The agent command (binary) to launch                            | `opencode`     |
+| `--agent-args`       | `ACP_AGENT_ARGS`      | Comma-separated arguments passed to the agent command           | `acp`          |
+| `--request-timeout`  | `ACP_REQUEST_TIMEOUT` | Timeout in seconds for steps: initialize, create session, etc.  | `30`           |
+| `--prompt-timeout`   | `ACP_PROMPT_TIMEOUT`  | Timeout in seconds for prompt requests; 0 means no timeout      | `0`            |
+| `--permission-mode`  | `ACP_PERMISSION_MODE` | How to respond to agent permission requests (see below)         | `allow_always` |
+| `-h`, `--help`       |                       | Show help message and exit                                      |                |
+| `-V`, `--version`    |                       | Print version info and exit                                     |                |
+
+### Examples
+
 ```shell
-mvn exec:exec -pl client \
-  -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
+# Using CLI arguments
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --prompt "Read the skills/dummy/SKILL.md instructions and say hello."
 
-mvn exec:exec -pl client \
-  -Dprovider="anthropic-vertex-ai" \
-  -Dmodel="claude-opus-4-6" \
-  -DacpAgentBinary="claude-agent-acp" \
-  -Dprompt="Read the skills/dummy/SKILL.md instructions and say hello at the root of the project. Show the hello messages part of the response too."
-```
-Here is typical command that you will run to analyze a java project
-```shell
-mvn exec:exec -pl client \
-  -Dprovider="anthropic-vertex-ai" \
-  -Dmodel="claude-opus-4-6" \
-  -DacpAgentBinary="claude-agent-acp" \
-  -Dprompt="Execute the **java-project-discovery** skill. Inspect the workspace root directory, determine the build setup, target Java version, and framework configurations, and return the structured JSON output."
+# Using environment variables
+export ACP_PROVIDER=anthropic-vertex-ai
+export ACP_MODEL=claude-opus-4-6
+export ACP_AGENT_BINARY=claude-agent-acp
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --prompt "Execute the java-project-discovery skill."
+
+# Analyze a java project
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --provider anthropic-vertex-ai \
+  --model claude-opus-4-6 \
+  --agent-binary claude-agent-acp \
+  --prompt "Execute the **java-project-discovery** skill. Inspect the workspace root directory, determine the build setup, target Java version, and framework configurations, and return the structured JSON output."
 ```
 
 ## Providers
 
-The required environment variables are automatically checked based on the `-Dprovider` value. The client will exit with an error if any are missing.
+The required environment variables are automatically checked based on the `--provider` value. The client will exit with an error if any are missing.
 
-| Provider (`-Dprovider`)  | Environment variables                                                                                                   | Documentation                                                                        |
+| Provider (`--provider`)  | Environment variables                                                                                                   | Documentation                                                                        |
 |--------------------------|-------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
 | `opencode-zen` (default) | none                                                                                                                    | [OpenCode Zen](https://opencode.ai/docs/zen/)                                       |
 | `google-vertex-ai`       | `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_LOCATION`, `GOOGLE_CLOUD_PROJECT`                                             | [Google Vertex AI](https://opencode.ai/docs/providers/#google-vertex-ai)             |
@@ -100,41 +148,41 @@ The required environment variables are automatically checked based on the `-Dpro
 ### opencode acp and Google Vertex AI provider
 
 ```shell
-export GOOGLE_APPLICATION_CREDENTIALS=$home/.config/gcloud/application_default_credentials.json
+export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.config/gcloud/application_default_credentials.json
 export VERTEX_LOCATION=<google-location>
 export GOOGLE_CLOUD_PROJECT=<google-project>
 
-mvn exec:exec -pl client \
-  -DacpAgentBinary="opencode" \
-  -DacpAgentArgs="acp" \
-  -Dprovider="google-vertex-ai" \
-  -Dmodel="google-vertex-anthropic/claude-opus-4-6@default"
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --agent-binary opencode \
+  --agent-args acp \
+  --provider google-vertex-ai \
+  --model "google-vertex-anthropic/claude-opus-4-6@default"
 ```
 
 ### claude acp and Google Vertex AI provider
 
 ```shell
-export CLAUDE_ML_REGION=<google-location>
+export CLOUD_ML_REGION=<google-location>
 export CLAUDE_CODE_USE_VERTEX=1
 export ANTHROPIC_VERTEX_PROJECT_ID=<google-project>
 
-mvn exec:exec -pl client \
-  -DacpAgentBinary="claude-agent-acp" \
-  -Dprovider="anthropic-vertex-ai" \
-  -Dmodel="claude-opus-4-6"
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --agent-binary claude-agent-acp \
+  --provider anthropic-vertex-ai \
+  --model claude-opus-4-6
 ```
 
 ### pi acp
 
 ```shell
-mvn exec:exec -pl client \
-  -DacpAgentBinary="pi-acp" \
-  -Dprompt="Say Hello"
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --agent-binary pi-acp \
+  --prompt "Say Hello"
 ```
 
 ## Permissions
 
-When an agent needs to perform a sensitive operation (e.g. writing a file, running a command), it sends a `session/request_permission` request. The client responds automatically based on the `-DpermissionMode` value:
+When an agent needs to perform a sensitive operation (e.g. writing a file, running a command), it sends a `session/request_permission` request. The client responds automatically based on the `--permission-mode` value:
 
 | Mode           | Behavior                                            |
 |----------------|-----------------------------------------------------|
@@ -145,14 +193,28 @@ When an agent needs to perform a sensitive operation (e.g. writing a file, runni
 
 Example:
 ```shell
-mvn exec:exec -pl client -DpermissionMode=allow_once -Dprompt="Create a Java HelloWorld class"
+java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --permission-mode allow_once \
+  --prompt "Create a Java HelloWorld class"
 ```
 
 ## Logging
 
-The project uses [SLF4J](https://www.slf4j.org/) with [JBoss Log Manager](https://github.com/jboss-logging/jboss-logmanager) as the logging backend. By default, only `INFO`-level messages are shown (connection status, prompt lifecycle). Session update details (thoughts, tool calls, plans, commands, usage) and protocol internals are logged at `DEBUG` or `TRACE` level.
+The project uses Quarkus logging (backed by [JBoss Log Manager](https://github.com/jboss-logging/jboss-logmanager)). By default, only `INFO`-level messages are shown (connection status, prompt lifecycle). Session update details (thoughts, tool calls, plans, commands, usage) and protocol internals are logged at `DEBUG` or `TRACE` level.
 
-Log levels are configured in `client/src/main/resources/logging.properties`. You can also override them on the command line.
+Log levels are configured in `client/src/main/resources/application.properties`. You can also override them on the command line:
+
+```shell
+# Enable debug logging
+java -Dquarkus.log.category.\"io.quarkiverse\".level=DEBUG \
+  -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --prompt "Say Hello"
+
+# Enable trace logging (raw JSON-RPC messages)
+java -Dquarkus.log.category.\"io.quarkiverse\".level=TRACE \
+  -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
+  --prompt "Say Hello"
+```
 
 ### Log levels
 
