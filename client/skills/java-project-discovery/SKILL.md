@@ -12,6 +12,7 @@ Identify key project metrics to establish workspace context for the AI agent bef
 2. **Inspect Environment Context:** Parse file tokens to extract core coordinates, parent POMs, or plugins.
 3. **Analyze Runtime Dependencies:** Search for ecosystem markers like Spring Boot, Quarkus, or Jakarta EE.
 4. **Output Generation:** Return a structured JSON block mapping the technical stack.
+5. **Summary report:** Create a SUMMARY.md file with the collected information.
 
 ## Expected Output Schema
 Your final response must be contained entirely within a single markdown JSON code block following this exact template structure:
