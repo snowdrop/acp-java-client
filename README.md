@@ -110,6 +110,8 @@ All options support environment variable fallback. Precedence: **CLI argument > 
 | `--request-timeout`  | `ACP_REQUEST_TIMEOUT` | Timeout in seconds for steps: initialize, create session, etc.    | `30`           |
 | `--prompt-timeout`   | `ACP_PROMPT_TIMEOUT`  | Timeout in seconds for prompt requests; 0 means no timeout        | `0`            |
 | `--permission-mode`  | `ACP_PERMISSION_MODE` | How to respond to agent permission requests (see below)           | `allow_always` |
+| `-b`, `--backup`     | `ACP_BACKUP`          | Backup workspace to `target/workdirs` before running: `yes`, `no`. Only applies to Maven/Gradle projects | `yes` |
+| `-w`, `--workspace-name` | `ACP_WORKSPACE_NAME` | Name of the workspace project used in the backup directory: `target/workdirs/<name>_<timestamp>` | `.` (current directory name) |
 | `-l`, `--log-level`  | `ACP_LOG_LEVEL`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`          | `INFO`         |
 | `-h`, `--help`       |                       | Show help message and exit                                        |                |
 | `-V`, `--version`    |                       | Print version info and exit                                       |                |
@@ -183,6 +185,30 @@ Example:
 java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
   --permission-mode allow_once \
   --prompt "Create a Java HelloWorld class"
+```
+
+## Workspace backup
+
+When running against a Maven or Gradle project, the client automatically backs up the workspace before starting the agent session. This creates a timestamped copy of your source files under `target/workdirs/<yyyyMMdd-HHmmss>`, allowing you to restore the original state if the agent makes undesired changes.
+
+- **Enabled by default** (`--backup yes`)
+- **Only applies** to directories containing `pom.xml`, `build.gradle`, or `build.gradle.kts`
+- **Backup path**: `target/workdirs/<workspace-name>_<yyyyMMdd-HHmmss>`
+- **`--workspace-name`** defaults to `.`, which resolves to the current directory name. Override it when running the same command against multiple projects in a shared workspace
+- **Excludes** build output and metadata directories: `target/`, `build/`, `.git/`, `.gradle/`, `.idea/`, `node_modules/`
+- **Skipped silently** for non-Maven/Gradle workspaces regardless of the flag value
+
+```shell
+# Backup is enabled by default — uses current directory name
+acp-client --agent claude --prompt "Refactor the service layer"
+# → target/workdirs/my-project_20260526-143022/
+
+# Specify a workspace name (useful when running against multiple projects)
+acp-client --agent claude --workspace-name my-service --prompt "Migrate to Jakarta"
+# → target/workdirs/my-service_20260526-143022/
+
+# Disable backup
+acp-client --agent claude --backup no --prompt "Refactor the service layer"
 ```
 
 ## Logging

@@ -10,9 +10,15 @@ import org.jboss.logging.Logger;
 import picocli.CommandLine;
 import picocli.AutoComplete.GenerateCompletion;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 /**
@@ -112,6 +118,18 @@ public class AcpAgentCommand implements Runnable {
             description = "How to respond to agent permission requests: allow_always, allow_once, reject_once, reject_always [env: ACP_PERMISSION_MODE]")
     String permissionMode;
 
+    @CommandLine.Option(names = {"-b", "--backup"},
+            description = "Backup workspace to target/workdirs before running: yes, no (default: yes). Only applies to Maven/Gradle projects [env: ACP_BACKUP]")
+    String backup;
+
+    @CommandLine.Option(names = {"-w", "--workspace-name"},
+            description = "Name of the workspace project used in the backup directory: target/workdirs/<name>_<timestamp> (default: current directory name) [env: ACP_WORKSPACE_NAME]")
+    String workspaceName;
+
+    @CommandLine.Option(names = {"-s", "--skill-path"},
+            description = "Absolute path to a skills folder to add as additional directory [env: SKILL_PATH]")
+    String skillPath;
+
     @CommandLine.Option(names = {"-l", "--log-level"},
             description = "Log level: INFO, DEBUG, TRACE, WARNING, SEVERE [env: ACP_LOG_LEVEL]")
     String logLevel;
@@ -190,6 +208,13 @@ public class AcpAgentCommand implements Runnable {
         // 0. Check for required env variables based on agent + provider
         checkProviderEnv(agent, provider);
 
+        // 0b. Backup workspace if requested and project is Maven/Gradle
+        backup = resolveOption(backup, "ACP_BACKUP", "yes");
+        workspaceName = resolveOption(workspaceName, "ACP_WORKSPACE_NAME", ".");
+        if ("yes".equalsIgnoreCase(backup)) {
+            backupWorkspace(workspaceName);
+        }
+
         // 1. Configure agent parameters
         var paramBuilder = AgentParameters.builder(binary);
         if (args != null && !args.isEmpty()) {
@@ -265,10 +290,15 @@ public class AcpAgentCommand implements Runnable {
             }
 
             // 7. Send a prompt
-            logger.infof("Sending prompt: %s", prompt);
+            skillPath = resolveOption(skillPath, "SKILL_PATH", null);
+            String effectivePrompt = prompt;
+            if (skillPath != null) {
+                effectivePrompt = prompt + "\n\nPlease read the skill file at: " + skillPath + " and follow its instructions.";
+            }
+            logger.infof("Sending prompt: %s", effectivePrompt);
             System.out.println("Here is the AI response:");
             var response = client.prompt(new PromptRequest(
-                    List.of(new TextContent(prompt)),
+                    List.of(new TextContent(effectivePrompt)),
                     sessionId
             ));
 
@@ -458,6 +488,59 @@ public class AcpAgentCommand implements Runnable {
         if (value == null || value.isBlank()) {
             System.err.println("ERROR: " + varName + " environment variable is not set (required for " + provider + " provider).");
             System.exit(1);
+        }
+    }
+
+    // ── Workspace backup ────────────────────────────────────────────────────
+
+    /**
+     * Backs up the current workspace to {@code target/workdirs/<name>_<timestamp>}.
+     * Only applies to Maven ({@code pom.xml}) or Gradle ({@code build.gradle} / {@code build.gradle.kts}) projects.
+     * Build output, VCS, and dependency directories are excluded from the copy.
+     *
+     * @param name the workspace project name; {@code "."} resolves to the current directory name
+     */
+    private void backupWorkspace(String name) {
+        Path workDir = Path.of(System.getProperty("user.dir"));
+        boolean isMaven = Files.exists(workDir.resolve("pom.xml"));
+        boolean isGradle = Files.exists(workDir.resolve("build.gradle"))
+                || Files.exists(workDir.resolve("build.gradle.kts"));
+
+        if (!isMaven && !isGradle) {
+            logger.info("Skipping workspace backup (not a Maven or Gradle project)");
+            return;
+        }
+
+        // Resolve "." to the current directory name
+        String projectName = ".".equals(name) ? workDir.getFileName().toString() : name;
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        Path backupDir = workDir.resolve("target").resolve("workdirs").resolve(projectName + "_" + timestamp);
+
+        Set<String> excludes = Set.of("target", "build", ".git", ".gradle", ".idea", "node_modules");
+
+        try {
+            Files.walk(workDir)
+                    .filter(path -> {
+                        Path relative = workDir.relativize(path);
+                        return relative.getNameCount() == 0
+                                || !excludes.contains(relative.getName(0).toString());
+                    })
+                    .forEach(source -> {
+                        Path dest = backupDir.resolve(workDir.relativize(source));
+                        try {
+                            if (Files.isDirectory(source)) {
+                                Files.createDirectories(dest);
+                            } else {
+                                Files.createDirectories(dest.getParent());
+                                Files.copy(source, dest);
+                            }
+                        } catch (IOException e) {
+                            logger.warnf("Failed to copy %s: %s", source, e.getMessage());
+                        }
+                    });
+            logger.infof("Workspace backed up to: %s", backupDir);
+        } catch (IOException e) {
+            logger.warnf("Failed to backup workspace: %s", e.getMessage());
         }
     }
 }

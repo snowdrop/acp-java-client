@@ -136,6 +136,7 @@ public class AcpAgentCli {
             logger.debug("Auth methods: {}", initResponse.authMethods());
 
             // 5. Create a session
+            String skillPath = System.getProperty("skillPath");
             var session = client.newSession(new NewSessionRequest(System.getProperty("user.dir"), List.of()));
             var sessionId = session.sessionId();
             logger.info("Session created: {}", sessionId);
@@ -170,10 +171,14 @@ public class AcpAgentCli {
             }
 
             // 7. Send a prompt
-            logger.info("Sending prompt: {}", prompt);
+            String effectivePrompt = prompt;
+            if (skillPath != null && !skillPath.isEmpty()) {
+                effectivePrompt = prompt + "\n\nPlease read the skill file at: " + skillPath + " and follow its instructions.";
+            }
+            logger.info("Sending prompt: {}", effectivePrompt);
             System.out.println("Here is the AI response:");
             var response = client.prompt(new PromptRequest(
-                    List.of(new TextContent(prompt)),
+                    List.of(new TextContent(effectivePrompt)),
                     sessionId
             ));
 
