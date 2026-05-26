@@ -122,9 +122,13 @@ public class AcpAgentCommand implements Runnable {
             description = "Backup workspace to target/workdirs before running: yes, no (default: yes). Only applies to Maven/Gradle projects [env: ACP_BACKUP]")
     String backup;
 
-    @CommandLine.Option(names = {"-w", "--workspace-name"},
-            description = "Name of the workspace project used in the backup directory: target/workdirs/<name>_<timestamp> (default: current directory name) [env: ACP_WORKSPACE_NAME]")
-    String workspaceName;
+    @CommandLine.Option(names = {"--backup-project-name"},
+            description = "Name of the project used in the backup directory: target/workdirs/<name>_<timestamp> (default: current directory name) [env: ACP_BACKUP_PROJECT_NAME]")
+    String backupProjectName;
+
+    @CommandLine.Option(names = {"--wks", "--workspace-path"},
+            description = "Absolute path to the project/workspace directory used as CWD for the session. If not set, defaults to the directory where the command is executed [env: WORKSPACE_PATH]")
+    String workspacePath;
 
     @CommandLine.Option(names = {"-s", "--skill-path"},
             description = "Absolute path to a skills folder to add as additional directory [env: SKILL_PATH]")
@@ -208,12 +212,22 @@ public class AcpAgentCommand implements Runnable {
         // 0. Check for required env variables based on agent + provider
         checkProviderEnv(agent, provider);
 
-        // 0b. Backup workspace if requested and project is Maven/Gradle
+        // 0b. Resolve workspace path: CLI/env > current directory
+        workspacePath = resolveOption(workspacePath, "WORKSPACE_PATH", null);
+        String sessionCwd = workspacePath != null ? workspacePath : System.getProperty("user.dir");
+        logger.infof("Workspace CWD: %s", sessionCwd);
+
+        // 0c. Backup workspace if requested and project is Maven/Gradle
         backup = resolveOption(backup, "ACP_BACKUP", "yes");
-        workspaceName = resolveOption(workspaceName, "ACP_WORKSPACE_NAME", ".");
+        backupProjectName = resolveOption(backupProjectName, "ACP_BACKUP_PROJECT_NAME", ".");
         if ("yes".equalsIgnoreCase(backup)) {
-            backupWorkspace(workspaceName);
+            Path backupDir = backupWorkspace(backupProjectName, Path.of(sessionCwd));
+            if (backupDir != null) {
+                sessionCwd = backupDir.toAbsolutePath().toString();
+                logger.infof("CWD set to backup directory: %s", sessionCwd);
+            }
         }
+        final String cwd = sessionCwd;
 
         // 1. Configure agent parameters
         var paramBuilder = AgentParameters.builder(binary);
@@ -256,9 +270,9 @@ public class AcpAgentCommand implements Runnable {
             logger.debugf("Auth methods: %s", initResponse.authMethods());
 
             // 5. Create a session
-            var session = client.newSession(new NewSessionRequest(System.getProperty("user.dir"), List.of()));
+            var session = client.newSession(new NewSessionRequest(cwd, List.of()));
             var sessionId = session.sessionId();
-            logger.infof("Session created: %s", sessionId);
+            logger.infof("Session created: %s with CWD: %s", sessionId, cwd);
 
             // Log the agent's default model from session config
             if (session.configOptions() != null) {
@@ -500,23 +514,26 @@ public class AcpAgentCommand implements Runnable {
      *
      * @param name the workspace project name; {@code "."} resolves to the current directory name
      */
-    private void backupWorkspace(String name) {
-        Path workDir = Path.of(System.getProperty("user.dir"));
+    /**
+     * Backs up the workspace to target/workdirs and returns the backup directory path,
+     * or {@code null} if the backup was skipped or failed.
+     */
+    private Path backupWorkspace(String name, Path workDir) {
         boolean isMaven = Files.exists(workDir.resolve("pom.xml"));
         boolean isGradle = Files.exists(workDir.resolve("build.gradle"))
                 || Files.exists(workDir.resolve("build.gradle.kts"));
 
         if (!isMaven && !isGradle) {
             logger.info("Skipping workspace backup (not a Maven or Gradle project)");
-            return;
+            return null;
         }
 
         // Resolve "." to the current directory name
         String projectName = ".".equals(name) ? workDir.getFileName().toString() : name;
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss"));
         Path backupDir = workDir.resolve("target").resolve("workdirs").resolve(projectName + "_" + timestamp);
 
-        Set<String> excludes = Set.of("target", "build", ".git", ".gradle", ".idea", "node_modules");
+        Set<String> excludes = Set.of("target", "build", ".git", ".gradle", ".idea", "node_modules",".claude", ".env");
 
         try {
             Files.walk(workDir)
@@ -539,8 +556,10 @@ public class AcpAgentCommand implements Runnable {
                         }
                     });
             logger.infof("Workspace backed up to: %s", backupDir);
+            return backupDir;
         } catch (IOException e) {
             logger.warnf("Failed to backup workspace: %s", e.getMessage());
+            return null;
         }
     }
 }

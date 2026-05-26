@@ -99,22 +99,23 @@ Hello
 
 All options support environment variable fallback. Precedence: **CLI argument > environment variable > default value**.
 
-| Option               | Env Variable          | Description                                                       | Default        |
-|----------------------|-----------------------|-------------------------------------------------------------------|----------------|
-| `-a`, `--agent`      | `ACP_AGENT`           | ACP agent: `opencode`, `claude`, `pi`, `gemini`                   | `opencode`     |
-| `-p`, `--prompt`     | `ACP_PROMPT`          | The prompt text to send to the agent                              | `Say Hello`    |
-| `--provider`         | `ACP_PROVIDER`        | Provider: `zen`, `vertex-ai`                                      | `zen`          |
-| `-m`, `--model`      | `ACP_MODEL`           | The model to use, e.g. `claude-opus-4-6` (resolved per agent/provider) |            |
-| `--agent-binary`     | `ACP_AGENT_BINARY`    | Override agent binary path (for custom agents)                    |                |
-| `--agent-args`       | `ACP_AGENT_ARGS`      | Override agent arguments (for custom agents)                      |                |
-| `--request-timeout`  | `ACP_REQUEST_TIMEOUT` | Timeout in seconds for steps: initialize, create session, etc.    | `30`           |
-| `--prompt-timeout`   | `ACP_PROMPT_TIMEOUT`  | Timeout in seconds for prompt requests; 0 means no timeout        | `0`            |
-| `--permission-mode`  | `ACP_PERMISSION_MODE` | How to respond to agent permission requests (see below)           | `allow_always` |
-| `-b`, `--backup`     | `ACP_BACKUP`          | Backup workspace to `target/workdirs` before running: `yes`, `no`. Only applies to Maven/Gradle projects | `yes` |
-| `-w`, `--workspace-name` | `ACP_WORKSPACE_NAME` | Name of the workspace project used in the backup directory: `target/workdirs/<name>_<timestamp>` | `.` (current directory name) |
-| `-l`, `--log-level`  | `ACP_LOG_LEVEL`       | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`          | `INFO`         |
-| `-h`, `--help`       |                       | Show help message and exit                                        |                |
-| `-V`, `--version`    |                       | Print version info and exit                                       |                |
+| Option                      | Env Variable              | Description                                                                                                                                                            | Default                      |
+|-----------------------------|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------|
+| `-a`, `--agent`             | `ACP_AGENT`               | ACP agent: `opencode`, `claude`, `pi`, `gemini`                                                                                                                        | `opencode`                   |
+| `-p`, `--prompt`            | `ACP_PROMPT`              | The prompt text to send to the agent                                                                                                                                   | `Say Hello`                  |
+| `--provider`                | `ACP_PROVIDER`            | Provider: `zen`, `vertex-ai`                                                                                                                                           | `zen`                        |
+| `-m`, `--model`             | `ACP_MODEL`               | The model to use, e.g. `claude-opus-4-6` (resolved per agent/provider)                                                                                                 |                              |
+| `--agent-binary`            | `ACP_AGENT_BINARY`        | Override agent binary path (for custom agents)                                                                                                                         |                              |
+| `--agent-args`              | `ACP_AGENT_ARGS`          | Override agent arguments (for custom agents)                                                                                                                           |                              |
+| `--request-timeout`         | `ACP_REQUEST_TIMEOUT`     | Timeout in seconds for steps: initialize, create session, etc.                                                                                                         | `30`                         |
+| `--prompt-timeout`          | `ACP_PROMPT_TIMEOUT`      | Timeout in seconds for prompt requests; 0 means no timeout                                                                                                             | `0`                          |
+| `--permission-mode`         | `ACP_PERMISSION_MODE`     | How to respond to agent permission requests (see below)                                                                                                                | `allow_always`               |
+| `-b`, `--backup`            | `ACP_BACKUP`              | Backup workspace to `target/workdirs` before running: `yes`, `no`. Only applies to Maven/Gradle projects. When enabled, the session CWD is set to the backup directory | `yes`                        |
+| `--backup-project-name`     | `ACP_BACKUP_PROJECT_NAME` | Name of the project used in the backup directory: `target/workdirs/<name>_<timestamp>`                                                                                 | `.` (current directory name) |
+| `--wks`, `--workspace-path` | `WORKSPACE_PATH`          | Absolute path to the project/workspace directory used as CWD for the session. If not set, defaults to the directory where the command is executed                      | current directory            |
+| `-l`, `--log-level`         | `ACP_LOG_LEVEL`           | Log level: `INFO`, `DEBUG`, `TRACE`, `WARNING`, `SEVERE`                                                                                                               | `INFO`                       |
+| `-h`, `--help`              |                           | Show help message and exit                                                                                                                                             |                              |
+| `-V`, `--version`           |                           | Print version info and exit                                                                                                                                            |                              |
 
 The `--agent` option resolves the binary and arguments automatically from a built-in registry. For custom or unsupported agents, use `--agent-binary` and `--agent-args` instead.
 
@@ -187,27 +188,48 @@ java -jar client/target/acp-client-0.1.0-SNAPSHOT-runner.jar \
   --prompt "Create a Java HelloWorld class"
 ```
 
-## Workspace backup
+## Workspace path and backup
 
-When running against a Maven or Gradle project, the client automatically backs up the workspace before starting the agent session. This creates a timestamped copy of your source files under `target/workdirs/<yyyyMMdd-HHmmss>`, allowing you to restore the original state if the agent makes undesired changes.
+### Workspace path
+
+The `--workspace-path` option sets the project directory used as CWD for the agent session. If not specified, it defaults to the directory where the command is executed.
+
+```shell
+# Run the agent against a different project directory
+acp-client --agent claude --workspace-path /path/to/my-project --prompt "Say hello"
+
+# Using an environment variable
+export WORKSPACE_PATH=/path/to/my-project
+acp-client --agent claude --prompt "Say hello"
+```
+
+### Workspace backup
+
+When running against a Maven or Gradle project, the client automatically backs up the workspace before starting the agent session. This creates a timestamped copy of your source files under `target/workdirs/`, allowing you to restore the original state if the agent makes undesired changes. When backup is enabled and succeeds, the session CWD is automatically set to the backup directory so the agent works on the copy.
 
 - **Enabled by default** (`--backup yes`)
 - **Only applies** to directories containing `pom.xml`, `build.gradle`, or `build.gradle.kts`
 - **Backup path**: `target/workdirs/<workspace-name>_<yyyyMMdd-HHmmss>`
-- **`--workspace-name`** defaults to `.`, which resolves to the current directory name. Override it when running the same command against multiple projects in a shared workspace
+- **CWD moves to backup**: when backup succeeds, the agent session CWD points to the backup directory
+- **`--backup-project-name`** defaults to `.`, which resolves to the current directory name. Override it when running the same command against multiple projects in a shared workspace
 - **Excludes** build output and metadata directories: `target/`, `build/`, `.git/`, `.gradle/`, `.idea/`, `node_modules/`
 - **Skipped silently** for non-Maven/Gradle workspaces regardless of the flag value
 
 ```shell
 # Backup is enabled by default — uses current directory name
+# CWD is set to the backup directory
 acp-client --agent claude --prompt "Refactor the service layer"
-# → target/workdirs/my-project_20260526-143022/
+# → CWD: target/workdirs/my-project_20260526-143022/
 
-# Specify a workspace name (useful when running against multiple projects)
-acp-client --agent claude --workspace-name my-service --prompt "Migrate to Jakarta"
-# → target/workdirs/my-service_20260526-143022/
+# Specify a backup project name (useful when running against multiple projects)
+acp-client --agent claude --backup-project-name my-service --prompt "Migrate to Jakarta"
+# → CWD: target/workdirs/my-service_20260526-143022/
 
-# Disable backup
+# Combine workspace-path with backup
+acp-client --agent claude --workspace-path /path/to/my-project --prompt "Refactor"
+# → CWD: /path/to/my-project/target/workdirs/my-project_20260526-143022/
+
+# Disable backup — CWD stays as workspace-path or current directory
 acp-client --agent claude --backup no --prompt "Refactor the service layer"
 ```
 

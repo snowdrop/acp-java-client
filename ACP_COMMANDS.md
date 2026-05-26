@@ -14,7 +14,8 @@ Reference commands for running the ACP Java Client with each supported agent and
 - [Pi](#pi)
   - [Pi + Vertex AI](#pi--vertex-ai)
 - [Using --skill-path](#using---skill-path)
-- [Using --backup and --workspace-name](#using---backup-and---workspace-name)
+- [Using --workspace-path](#using---workspace-path)
+- [Using --backup and --backup-project-name](#using---backup-and---backup-project-name)
 - [Using --log-level](#using---log-level)
 
 ## Prerequisites
@@ -135,7 +136,7 @@ acp-client \
 
 ## Using --skill-path
 
-The `--skill-path` option (or `SKILL_PATH` env var) passes a skills folder as an additional directory to the agent session. This allows the agent to access skill definitions stored outside the current workspace.
+The `--skill-path` option (or `SKILL_PATH` env var) specifies the path to a skill file. When set, the prompt is enhanced with an instruction telling the agent to read and follow the skill file.
 
 ```shell
 acp-client \
@@ -154,17 +155,48 @@ acp-client \
   --prompt "Execute the **java-project-discovery** skill."
 ```
 
-## Using --backup and --workspace-name
+## Using --workspace-path
 
-The `--backup` option (`-b`) creates a copy of the workspace under `target/workdirs/` before the agent runs. The `--workspace-name` option (`-w`) controls the directory name used in the backup.
+The `--workspace-path` option (or `WORKSPACE_PATH` env var) sets the project directory used as CWD for the agent session. If not specified, it defaults to the directory where the command is executed.
+
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --workspace-path /path/to/my-project \
+  --prompt "Say Hello"
+```
+
+Using an environment variable:
+```shell
+export WORKSPACE_PATH=/path/to/my-project
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --prompt "Say Hello"
+```
+
+## Using --backup and --backup-project-name
+
+The `--backup` option (`-b`) creates a copy of the workspace under `target/workdirs/` before the agent runs. The `--backup-project-name` option controls the directory name used in the backup. When backup succeeds, the session CWD is automatically set to the backup directory.
 
 ```shell
 acp-client \
   --agent claude \
   --provider vertex-ai \
   --backup yes \
-  --workspace-name my-todo-app \
+  --backup-project-name my-todo-app \
   --prompt "Refactor the REST endpoints to use Quarkus REST."
+```
+
+Combining `--workspace-path` with backup:
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --workspace-path /path/to/my-project \
+  --backup yes \
+  --prompt "Refactor the service layer"
 ```
 
 To disable backup:

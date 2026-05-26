@@ -98,6 +98,11 @@ public class AcpAgentCli {
         // 0. Check for required env variables based on the provider
         checkProviderEnv(provider);
 
+        // 0b. Resolve workspace path: system property > current directory
+        String workspacePath = System.getProperty("workspacePath");
+        String sessionCwd = (workspacePath != null && !workspacePath.isEmpty()) ? workspacePath : System.getProperty("user.dir");
+        final String cwd = sessionCwd;
+
         // 1. Configure agent parameters
         var builder = AgentParameters.builder(acpAgentBinary);
         for (String a : acpAgentArgs.split(",")) {
@@ -137,9 +142,9 @@ public class AcpAgentCli {
 
             // 5. Create a session
             String skillPath = System.getProperty("skillPath");
-            var session = client.newSession(new NewSessionRequest(System.getProperty("user.dir"), List.of()));
+            var session = client.newSession(new NewSessionRequest(cwd, List.of()));
             var sessionId = session.sessionId();
-            logger.info("Session created: {}", sessionId);
+            logger.info("Session created: {} with CWD: {}", sessionId, cwd);
 
             // Log the agent's default model from session config
             if (session.configOptions() != null) {
