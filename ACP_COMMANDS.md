@@ -2,6 +2,21 @@
 
 Reference commands for running the ACP Java Client with each supported agent and provider.
 
+## Table of contents
+
+- [Prerequisites](#prerequisites)
+- [OpenCode](#opencode)
+  - [OpenCode + Zen](#opencode--zen-free-model-no-env-vars-needed)
+  - [OpenCode + Vertex AI](#opencode--vertex-ai)
+- [Claude Code](#claude-code)
+  - [Claude Code + Vertex AI](#claude-code--vertex-ai)
+- [Gemini CLI](#gemini-cli)
+- [Pi](#pi)
+  - [Pi + Vertex AI](#pi--vertex-ai)
+- [Using --skill-path](#using---skill-path)
+- [Using --backup and --workspace-name](#using---backup-and---workspace-name)
+- [Using --log-level](#using---log-level)
+
 ## Prerequisites
 
 - **Build the uber-jar** first with `mvn clean install`
@@ -63,7 +78,7 @@ acp-client \
   --model claude-opus-4-6 \
   --prompt "Say Hello"
 ```
-or use the default `claude-opus-4-6`
+or use the default model: `claude-opus-4-6` using the provider `vertex-ai`
 ```shell
 acp-client \
   --agent claude \
@@ -116,4 +131,67 @@ acp-client \
   --agent pi \
   --provider vertex-ai \
   --prompt "Read the skills/dummy/SKILL.md instructions and say hello at the root of the project."
+```
+
+## Using --skill-path
+
+The `--skill-path` option (or `SKILL_PATH` env var) passes a skills folder as an additional directory to the agent session. This allows the agent to access skill definitions stored outside the current workspace.
+
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --skill-path /path/to/skills \
+  --prompt "Execute the **java-project-discovery** skill."
+```
+
+Using an environment variable:
+```shell
+export SKILL_PATH=/path/to/skills
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --prompt "Execute the **java-project-discovery** skill."
+```
+
+## Using --backup and --workspace-name
+
+The `--backup` option (`-b`) creates a copy of the workspace under `target/workdirs/` before the agent runs. The `--workspace-name` option (`-w`) controls the directory name used in the backup.
+
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --backup yes \
+  --workspace-name my-todo-app \
+  --prompt "Refactor the REST endpoints to use Quarkus REST."
+```
+
+To disable backup:
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  --backup no \
+  --prompt "Say Hello"
+```
+
+## Using --log-level
+
+The `--log-level` option (`-l`) controls log verbosity. Use `DEBUG` to see agent thoughts, tool calls, and usage details. Use `TRACE` to see raw JSON-RPC messages.
+
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  -l DEBUG \
+  --prompt "Review the pom.xml and propose improvements"
+```
+
+```shell
+acp-client \
+  --agent claude \
+  --provider vertex-ai \
+  -l TRACE \
+  --prompt "Say Hello"
 ```
