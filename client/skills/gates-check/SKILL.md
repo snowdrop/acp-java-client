@@ -11,20 +11,21 @@ metadata:
 
 Modular, gate-driven instructions to analyze a java Application
 
-## Step 1: Execute the Modules
+## Instructions
 
 - Execute the instructions of the modules according to the following Decision Gate Table
-- Always log which Module and Gate check is evaluated and the status
+- Always log which Module and Gate check is evaluated and the status using the format: 
+  Gate result: <STATUS> and <CONDITION_EVALUATED> 
 
 ### Decision Gate Table
 
 For each module, evaluate whether it applies to this project. A module executes only when its gate is **PASS**.
 Inspect the project to determine the gate result — do not rely on blind grep commands; use your understanding of the codebase.
 
-| Module                       | Gate Check       | Gate Result                                                         |
-|------------------------------|------------------|---------------------------------------------------------------------|
-| [jdk](modules/module-1.md)   | JDK 21+ required | **ALWAYS** -- stop analyze if < 21                                  |
-| [build](modules/module-2.md) | build system     | **PASS** if pom.xml or build.gradle(.kts) files; **SKIP** otherwise |
+| Module                       | Gate Check       | Gate Result                                                                         |
+|------------------------------|------------------|-------------------------------------------------------------------------------------|
+| [jdk](modules/module-1.md)   | JDK 21+ required | **ALWAYS** -- stop analyze if < 21                                                  |
+| [build](modules/module-2.md) | build system     | **PASS** if pom.xml or build.gradle(.kts) files is(are) present; **SKIP** otherwise |
 
 ### Execution Protocol
 
