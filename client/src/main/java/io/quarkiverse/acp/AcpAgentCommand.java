@@ -79,6 +79,7 @@ public class AcpAgentCommand implements Runnable {
 
     private final StringBuilder thoughtBuffer = new StringBuilder();
     private volatile boolean messageOutputPending = false;
+    private volatile UsageUpdate lastUsage = null;
 
     // ── CLI options ─────────────────────────────────────────────────────────
 
@@ -322,6 +323,28 @@ public class AcpAgentCommand implements Runnable {
                 messageOutputPending = false;
             }
             logger.infof("Done! Stop reason: %s", response.stopReason());
+            if (response.usage() != null) {
+                var u = response.usage();
+                logger.infof("[Tokens detail] input=%s, output=%s, cached_read=%s, cached_write=%s",
+                        u.get("inputTokens"), u.get("outputTokens"),
+                        u.get("cachedReadTokens"), u.get("cachedWriteTokens"));
+
+                // Combined summary: total tokens, window usage, and cost
+                Object total = u.get("totalTokens");
+                String windowInfo = "";
+                String costInfo = "";
+                if (lastUsage != null) {
+                    if (lastUsage.size() != null) {
+                        windowInfo = String.format(" / %s window (%s used)",
+                                lastUsage.size(), lastUsage.used() != null ? lastUsage.used() : "?");
+                    }
+                    if (lastUsage.cost() != null) {
+                        costInfo = String.format(" | cost: %s %s",
+                                lastUsage.cost().get("amount"), lastUsage.cost().get("currency"));
+                    }
+                }
+                logger.infof("[Summary] total_tokens=%s%s%s", total, windowInfo, costInfo);
+            }
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -430,13 +453,12 @@ public class AcpAgentCommand implements Runnable {
                 logger.infof("[Config] %s", configUpdate.configOptions());
             }
             case CurrentModeUpdate mode -> logger.infof("[Mode] %s", mode.currentModeId());
-            default -> {
-                if ("usage_update".equals(updateType) && update instanceof Map<?,?> map) {
-                    logger.infof("[Usage] used=%s size=%s cost=%s", map.get("used"), map.get("size"), map.get("cost"));
-                } else {
-                    logger.infof("[Update] %s: %s", updateType, update);
-                }
+            case UsageUpdate usage -> {
+                lastUsage = usage;
+                logger.debugf("[Usage] used=%s size=%s cost=%s", usage.used(), usage.size(), usage.cost());
             }
+            default ->
+                logger.infof("[Update] %s: %s", updateType, update);
         }
     }
 

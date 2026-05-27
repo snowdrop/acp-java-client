@@ -56,7 +56,8 @@ public class AcpAsyncClient {
             Map.entry("available_commands_update", AvailableCommandsUpdate.class),
             Map.entry("current_mode_update", CurrentModeUpdate.class),
             Map.entry("config_option_update", ConfigOptionUpdate.class),
-            Map.entry("session_info_update", SessionInfoUpdate.class)
+            Map.entry("session_info_update", SessionInfoUpdate.class),
+            Map.entry("usage_update", UsageUpdate.class)
     );
 
     private final StdioAcpClientTransport transport;
