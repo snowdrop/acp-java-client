@@ -61,7 +61,8 @@ public class AcpAgentCommand implements Runnable {
             "opencode", new AgentDef("opencode", "acp"),
             "claude",   new AgentDef("claude-agent-acp", null),
             "pi",       new AgentDef("pi-acp", null),
-            "gemini",   new AgentDef("gemini", "--acp")
+            "gemini",   new AgentDef("gemini", "--acp"),
+            "bob",new AgentDef("/Users/cmoullia/code/_temp/bob-acp-adapter/bobshell-acp.sh", null)
     );
 
     // ── Provider env-var requirements per agent + provider ──────────────────
