@@ -306,7 +306,7 @@ public class AcpAgentCommand implements Runnable {
             }
 
             // 7. Send a prompt
-            // TODO: Support to download SKILLS insted of having them locally
+            // TODO: Support to download SKILLS instead of having them locally
             skillPath = resolveOption(skillPath, "SKILL_PATH", null);
             String effectivePrompt = prompt;
             if (skillPath != null) {
