@@ -10,8 +10,9 @@ import java.util.Map;
  */
 public record PromptResponse(
         @JsonProperty("_meta") Map<String, Object> meta,
-        @JsonProperty("stopReason") StopReason stopReason) {
+        @JsonProperty("stopReason") StopReason stopReason,
+        @JsonProperty("usage") Map<String, Object> usage) {
     public PromptResponse(StopReason stopReason) {
-        this(null, stopReason);
+        this(null, stopReason, null);
     }
 }

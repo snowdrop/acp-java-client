@@ -43,6 +43,9 @@ public class AcpAgentCli {
     /** Tracks whether agent message text was printed, so we can add a newline before the next log line. */
     private static volatile boolean messageOutputPending = false;
 
+    /** Last usage update received, used to build the final summary. */
+    private static volatile UsageUpdate lastUsage = null;
+
     /** Default prompt used when no arguments are provided. */
     private static final String DEFAULT_PROMPT = "Say Hello";
 
@@ -193,6 +196,28 @@ public class AcpAgentCli {
                 messageOutputPending = false;
             }
             logger.info("Done! Stop reason: {}", response.stopReason());
+            if (response.usage() != null) {
+                var u = response.usage();
+                logger.info("[Tokens detail] input={}, output={}, cached_read={}, cached_write={}",
+                        u.get("inputTokens"), u.get("outputTokens"),
+                        u.get("cachedReadTokens"), u.get("cachedWriteTokens"));
+
+                // Combined summary: total tokens, window usage, and cost
+                Object total = u.get("totalTokens");
+                String windowInfo = "";
+                String costInfo = "";
+                if (lastUsage != null) {
+                    if (lastUsage.size() != null) {
+                        windowInfo = String.format(" / %s window (%s used)",
+                                lastUsage.size(), lastUsage.used() != null ? lastUsage.used() : "?");
+                    }
+                    if (lastUsage.cost() != null) {
+                        costInfo = String.format(" | cost: %s %s",
+                                lastUsage.cost().get("amount"), lastUsage.cost().get("currency"));
+                    }
+                }
+                logger.info("[Summary] total_tokens={}{}{}", total, windowInfo, costInfo);
+            }
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -260,13 +285,12 @@ public class AcpAgentCli {
                 logger.info("[Config] {}", configUpdate.configOptions());
             }
             case CurrentModeUpdate mode -> logger.info("[Mode] {}", mode.currentModeId());
-            default -> {
-                if ("usage_update".equals(updateType) && update instanceof Map<?,?> map) {
-                    logger.info("[Usage] used={} size={} cost={}", map.get("used"), map.get("size"), map.get("cost"));
-                } else {
-                    logger.info("[Update] {}: {}", updateType, update);
-                }
+            case UsageUpdate usage -> {
+                lastUsage = usage;
+                logger.debug("[Usage] used={} size={} cost={}", usage.used(), usage.size(), usage.cost());
             }
+            default ->
+                logger.info("[Update] {}: {}", updateType, update);
         }
     }
 
