@@ -58,8 +58,14 @@ public class ListAgentsCommand implements Runnable {
             String distType = describeDistribution(agent, platform);
             boolean installed = manager.isInstalled(agent.id());
             String desc = agent.description() != null ? truncate(agent.description(), 38) : "";
-            System.out.printf("%-25s %-12s %-14s %s%s%n",
-                    agent.id(),
+            String idDisplay = agent.website() != null && !agent.website().isEmpty()
+                    ? "\033]8;;" + agent.website() + "\033\\" + agent.id() + "\033]8;;\033\\"
+                    : agent.id();
+            // OSC 8 escape sequences are invisible, so pad based on the raw id length
+            int padding = 25 - agent.id().length();
+            System.out.printf("%s%-" + padding + "s %-12s %-14s %s%s%n",
+                    idDisplay,
+                    "",
                     agent.version(),
                     distType,
                     desc,
