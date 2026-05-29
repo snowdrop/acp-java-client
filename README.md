@@ -95,13 +95,15 @@ Hello
 11:12:00,676 INFO  [StdioAcpClientTransport] ACP agent process stopped (exit code 143)
 ```
 
-## CLI options
+## CLI commands
 
-All options support environment variable fallback. Precedence: **CLI argument > environment variable > default value**.
+Man pages for all commands and subcommands are available in the [docs/](docs/) directory.
+
+The following table is indicative and show for the acp client top command how you can configure the options or the corresponding environment variables. Precedence: **CLI argument > environment variable > default value**.
 
 | Option                      | Env Variable              | Description                                                                                                                                                            | Default                      |
 |-----------------------------|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------|
-| `-a`, `--agent`             | `ACP_AGENT`               | ACP agent: `opencode`, `claude`, `pi`, `gemini`                                                                                                                        | `opencode`                   |
+| `-a`, `--agent`             | `ACP_AGENT`               | ACP compatible agent id (see registry list)                                                                                                                            | `opencode`                   |
 | `-p`, `--prompt`            | `ACP_PROMPT`              | The prompt text to send to the agent                                                                                                                                   | `Say Hello`                  |
 | `--provider`                | `ACP_PROVIDER`            | Provider: `zen`, `vertex-ai`                                                                                                                                           | `zen`                        |
 | `-m`, `--model`             | `ACP_MODEL`               | The model to use, e.g. `claude-opus-4-6` (resolved per agent/provider)                                                                                                 |                              |
@@ -123,6 +125,8 @@ When using `--agent opencode` with `--provider vertex-ai`, simple model names ar
 `--model claude-opus-4-6` becomes `google-vertex-anthropic/claude-opus-4-6@default`.
 
 ### Examples
+
+For more detailed command examples per agent and provider, see [COMMANDS_EXAMPLE.md](COMMANDS_EXAMPLE.md).
 
 ```shell
 # OpenCode with Zen (default agent + provider)
