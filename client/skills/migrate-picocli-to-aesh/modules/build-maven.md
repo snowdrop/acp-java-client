@@ -10,6 +10,8 @@ Maven-specific build migration steps. Called from [build.md](build.md).
 - [ ] Update version properties
 - [ ] Compile: `./mvnw clean compile -DskipTests`
 
+**NOTE**: - Quarkus BOM may override `readline` version, breaking Aesh. The `readline` version must override what it is coming from Quarkus BOM.
+
 ## pom.xml Reference Snippets
 
 **Remove** picocli dependencies:

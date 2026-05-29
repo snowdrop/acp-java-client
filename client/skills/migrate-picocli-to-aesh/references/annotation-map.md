@@ -15,6 +15,9 @@
 - Picocli uses `@Command` for both simple and group commands. Aesh separates these: group commands use `@GroupCommandDefinition` with a `groupCommands` attribute listing subcommand classes.
 - The `description` attribute in Aesh is a single string, not a string array.
 - Don't miss to migrate an annotation attribute like `mixinStandardHelpOptions = true` to `generateHelp = true` no matter to which annotation it belongs: `@CommandDefintion` or `@GroupCommandDefinition`
+- `@GroupCommandDefinition` lacks `generateHelp` and `version` attributes
+- `@CommandDefinition.version` is `String` (not `String[]` like picocli)
+- The `@TopCommand` annotation is Quarkus-Picocli specific and should be replaced with `@CommandDefinition` plus `@GroupCommandDefinition`
 
 ## Options
 
@@ -33,6 +36,7 @@
 - Boolean flags **must** have `hasValue = false` in Aesh; picocli infers this from the field type or `arity = "0"`.
 - List-type options use the dedicated `@OptionList` annotation instead of `split` on `@Option`.
 - Map/property-style options use `@OptionGroup` instead of picocli's type inference on `Map` fields.
+- Picocli multi-alias option names aliases (e.g., `names = {"--wks", "--workspace-path"}`) have no aesh equivalent.
 
 ## Arguments (Positional Parameters)
 

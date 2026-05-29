@@ -27,13 +27,17 @@
 
 ## Output
 
-| Picocli | Aesh | Notes |
-|---|---|---|
-| `System.out.println(msg)` | `invocation.println(msg)` | Routes through terminal connection |
-| `System.err.println(msg)` | `invocation.println(msg)` | Use `invocation` for all output |
-| `@Command(header = "...")` | Use `invocation.println()` in execute method | No direct header equivalent |
+| Picocli                    | Aesh                                         | Notes                              |
+|----------------------------|----------------------------------------------|------------------------------------|
+| `System.out.println(msg)`  | `invocation.println(msg)`                    | Routes through terminal connection |
+| `System.err.println(msg)`  | `invocation.println(msg)`                    | Use `invocation` for all output    |
+| `System.out.print(msg)`    | `invocation.print(msg)`                      | Routes through terminal connection |
+| `System.err.print(msg)`    | `invocation.print(msg)`                      | Use `invocation` for all output    |
+| `@Command(header = "...")` | Use `invocation.println()` in execute method | No direct header equivalent        |
 
 **Why `invocation.println()`?** Aesh routes output through the terminal connection, allowing the same command to work across local terminals, SSH, telnet, and WebSocket connections.
+
+**Note**: Refer to this page for more information about invocation and how to stdin messages: https://aeshell.github.io/docs/aesh/command-invocation/
 
 ## Group Commands
 

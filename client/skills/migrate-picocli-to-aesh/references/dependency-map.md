@@ -57,9 +57,9 @@ No code changes needed — the Aesh processor runs at compile time and the runti
 
 ### Quarkus Integration
 
-| Picocli | Aesh | Notes |
-|---|---|---|
-| `quarkus-picocli` | `quarkus-aesh` (if available) or use Aesh directly | Check Quarkus extension catalog |
+| Picocli | Aesh                                             | Notes |
+|---|--------------------------------------------------|--|
+| `quarkus-picocli` | `quarkus-arc` | |
 
 ## Gradle Dependencies
 

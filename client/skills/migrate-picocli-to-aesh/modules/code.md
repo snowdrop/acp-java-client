@@ -6,7 +6,7 @@ Load [references/annotation-map.md](../references/annotation-map.md) and [refere
 
 ## What to do
 
-- [ ] Use the following aesh version: 3.6.1 to fetch the dependencies
+- [ ] Create a Quarkus Main class if quarkus-aesh is not present
 - [ ] Migrate command class annotations (`@Command` → `@CommandDefinition` / `@GroupCommandDefinition`)
 - [ ] Migrate command interfaces (`Runnable`/`Callable<Integer>` → `Command<CommandInvocation>`)
 - [ ] Migrate option annotations (`@Option` → Aesh `@Option`, `@OptionList`, `@OptionGroup`)
@@ -21,6 +21,25 @@ Load [references/annotation-map.md](../references/annotation-map.md) and [refere
 - [ ] Migrate return values (integer exit codes → `CommandResult`)
 - [ ] Update all imports (`picocli.CommandLine.*` → `org.aesh.command.*`)
 - [ ] Compile: `./mvnw clean compile -DskipTests` (Maven) or `./gradlew clean compileJava -x test` (Gradle)
+
+## Quarkus integration
+ 
+If quarkus-aesh is not present, create a Quarkus Main class where you create the AeshRuntime using its builder. See the following example.
+
+```java
+@QuarkusMain
+public class AcpMain implements QuarkusApplication {
+
+    @Override
+    public int run(String... args) throws Exception {
+        AeshRuntimeRunner.builder()
+                .command(AcpClientCommand.class)
+                .args(args)
+                .execute();
+        return 0;
+    }
+}
+```
 
 ## Command Class Migration
 

@@ -17,6 +17,7 @@ Then load and execute the matching sub-module above. After the sub-module comple
 
 ## What to do
 
+- [ ] Use aesh version: 3.8 to fetch the dependencies
 - [ ] Replace picocli dependency with Aesh dependency
 - [ ] Replace picocli annotation processor with Aesh annotation processor (if present)
 - [ ] Remove picocli-specific plugins or codegen dependencies
