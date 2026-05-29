@@ -47,13 +47,13 @@ import java.util.logging.Level;
  */
 @GroupCommandDefinition(
         name = "acp",
-        description = "CLI for any acp compatible agent (OpenCode, Claude, Pi, Gemini, etc.)",
+        description = "acp tool for any acp compatible agent (OpenCode, Claude, Pi, Gemini, etc.)",
         generateHelp = true,
         groupCommands = {RegistryCommand.class}
 )
-public class AcpClientCommand implements Command<CommandInvocation> {
+public class AcpCommand implements Command<CommandInvocation> {
 
-    private static final Logger logger = Logger.getLogger(AcpClientCommand.class);
+    private static final Logger logger = Logger.getLogger(AcpCommand.class);
 
     // -- Agent resolution ----
     // Agents are resolved dynamically from the ACP registry.
@@ -124,8 +124,8 @@ public class AcpClientCommand implements Command<CommandInvocation> {
             description = "Name of the project used in the backup directory: target/workdirs/<name>_<timestamp> (default: current directory name) [env: ACP_BACKUP_PROJECT_NAME]")
     String backupProjectName;
 
-    // NOTE: Picocli supported dual aliases (--wks, --workspace-path). Aesh only supports one long name.
-    @Option(name = "workspace-path",
+    @Option(aliases = "wks",
+            name = "workspace-path",
             description = "Absolute path to the project/workspace directory used as CWD for the session. If not set, defaults to the directory where the command is executed [env: WORKSPACE_PATH]")
     String workspacePath;
 
