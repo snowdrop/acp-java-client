@@ -78,6 +78,7 @@
                 </executions>
             </plugin>
 
+            <!-- NOT USED UNTIL NOW AS WE USE Picocli ManPageGenerator class
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -98,7 +99,6 @@
                     <arguments>
                         <argument>--outdir=${project.build.directory}/generated-picocli-docs</argument>
                         <argument>-v</argument>
-                        <!-- FIXME: remove the template-dir option after generating templates once -->
                         <argument>--template-dir=src/docs/mantemplates</argument>
                         <argument>io.quarkiverse.acp.AcpClientCommand</argument>
                     </arguments>
@@ -119,7 +119,6 @@
                 <executions>
                     <execution>
                         <id>output-html</id>
-                        <!--            <phase>prepare-package</phase>-->
                         <phase>process-classes</phase>
                         <goals>
                             <goal>process-asciidoc</goal>
@@ -131,7 +130,6 @@
                     </execution>
                     <execution>
                         <id>output-manpage</id>
-                        <!--            <phase>prepare-package</phase>-->
                         <phase>process-classes</phase>
                         <goals>
                             <goal>process-asciidoc</goal>
@@ -146,6 +144,7 @@
                     <sourceDirectory>${project.build.directory}/generated-picocli-docs</sourceDirectory>
                 </configuration>
             </plugin>
+            -->
         </plugins>
     </build>
 </project>
