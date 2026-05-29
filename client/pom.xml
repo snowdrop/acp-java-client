@@ -97,9 +97,9 @@
                     <includePluginDependencies>true</includePluginDependencies>
                     <mainClass>picocli.codegen.docgen.manpage.ManPageGenerator</mainClass>
                     <arguments>
-                        <argument>--outdir=${project.build.directory}/generated-picocli-docs</argument>
+                        <argument>-outdir=${project.build.directory}/generated-picocli-docs</argument>
                         <argument>-v</argument>
-                        <argument>--template-dir=src/docs/mantemplates</argument>
+                        <argument>-template-dir=src/docs/mantemplates</argument>
                         <argument>io.quarkiverse.acp.AcpClientCommand</argument>
                     </arguments>
                 </configuration>
