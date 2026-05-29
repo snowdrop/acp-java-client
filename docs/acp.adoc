@@ -1,0 +1,115 @@
+// tag::picocli-generated-full-manpage[]
+// tag::picocli-generated-man-section-header[]
+:doctype: manpage
+:revnumber: 0.1.0-SNAPSHOT
+:manmanual: Acp Manual
+:mansource: 0.1.0-SNAPSHOT
+:man-linkstyle: pass:[blue R < >]
+= acp(1)
+
+// end::picocli-generated-man-section-header[]
+
+// tag::picocli-generated-man-section-name[]
+== Name
+
+acp - CLI for any ACP-compatible agent (OpenCode, Claude, Pi, Gemini, etc.)
+
+// end::picocli-generated-man-section-name[]
+
+// tag::picocli-generated-man-section-synopsis[]
+== Synopsis
+
+*acp* [*-hV*] [*-a*=_<agent>_] [*--agent-args*=_<acpAgentArgs>_]
+    [*--agent-binary*=_<acpAgentBinary>_] [*-b*=_<backup>_]
+    [*--backup-project-name*=_<backupProjectName>_] [*-l*=_<logLevel>_] [*-m*=_<model>_]
+    [*-p*=_<prompt>_] [*--permission-mode*=_<permissionMode>_]
+    [*--prompt-timeout*=_<promptTimeout>_] [*--provider*=_<provider>_]
+    [*--request-timeout*=_<requestTimeout>_] [*-s*=_<skillPath>_]
+    [*--wks*=_<workspacePath>_] [COMMAND]
+
+// end::picocli-generated-man-section-synopsis[]
+
+// tag::picocli-generated-man-section-description[]
+== Description
+
+CLI for any ACP-compatible agent (OpenCode, Claude, Pi, Gemini, etc.)
+
+// end::picocli-generated-man-section-description[]
+
+// tag::picocli-generated-man-section-options[]
+== Options
+
+*-a*, *--agent*=_<agent>_::
+  ACP agent registry ID: opencode, claude-acp, pi-acp, gemini, ... (use 'acp reg list --registry' to see all) [env: ACP_AGENT]
+
+*--agent-args*=_<acpAgentArgs>_::
+  Override agent arguments (for custom agents) [env: ACP_AGENT_ARGS]
+
+*--agent-binary*=_<acpAgentBinary>_::
+  Override agent binary path (for custom agents) [env: ACP_AGENT_BINARY]
+
+*-b*, *--backup*=_<backup>_::
+  Backup workspace to target/workdirs before running: yes, no (default: yes). Only applies to Maven/Gradle projects [env: ACP_BACKUP]
+
+*--backup-project-name*=_<backupProjectName>_::
+  Name of the project used in the backup directory: target/workdirs/<name>_<timestamp> (default: current directory name) [env: ACP_BACKUP_PROJECT_NAME]
+
+*-h*, *--help*::
+  Show this help message and exit.
+
+*-l*, *--log-level*=_<logLevel>_::
+  Log level: INFO, DEBUG, TRACE, WARNING, SEVERE [env: ACP_LOG_LEVEL]
+
+*-m*, *--model*=_<model>_::
+  The model to use, e.g. claude-opus-4-6 (resolved per agent/provider) [env: ACP_MODEL]
+
+*-p*, *--prompt*=_<prompt>_::
+  The prompt text to send to the agent [env: ACP_PROMPT]
+
+*--permission-mode*=_<permissionMode>_::
+  How to respond to agent permission requests: allow_always, allow_once, reject_once, reject_always [env: ACP_PERMISSION_MODE]
+
+*--prompt-timeout*=_<promptTimeout>_::
+  Timeout in seconds for prompt requests; 0 means no timeout [env: ACP_PROMPT_TIMEOUT]
+
+*--provider*=_<provider>_::
+  Provider: zen, vertex-ai [env: ACP_PROVIDER]
+
+*--request-timeout*=_<requestTimeout>_::
+  Timeout in seconds for requests (initialize, create session, etc.) [env: ACP_REQUEST_TIMEOUT]
+
+*-s*, *--skill-path*=_<skillPath>_::
+  Absolute path to a skills folder to add as additional directory [env: SKILL_PATH]
+
+*-V*, *--version*::
+  Print version information and exit.
+
+*--wks, --workspace-path*=_<workspacePath>_::
+  Absolute path to the project/workspace directory used as CWD for the session. If not set, defaults to the directory where the command is executed [env: WORKSPACE_PATH]
+
+// end::picocli-generated-man-section-options[]
+
+// tag::picocli-generated-man-section-arguments[]
+// end::picocli-generated-man-section-arguments[]
+
+// tag::picocli-generated-man-section-commands[]
+== Commands
+
+xref:acp-gen-manpage.adoc[*gen-manpage*]::
+  Generates man pages for all commands in the specified directory.
+
+xref:acp-generate-completion.adoc[*generate-completion*]::
+  Generate bash/zsh completion script for acp.
+
+xref:acp-reg.adoc[*reg*]::
+  Manage ACP agents via the registry (list, install, remove)
+
+// end::picocli-generated-man-section-commands[]
+
+// tag::picocli-generated-man-section-exit-status[]
+// end::picocli-generated-man-section-exit-status[]
+
+// tag::picocli-generated-man-section-footer[]
+// end::picocli-generated-man-section-footer[]
+
+// end::picocli-generated-full-manpage[]

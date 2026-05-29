@@ -1,5 +1,7 @@
 package io.quarkiverse.acp;
 
+import io.quarkiverse.acp.registry.AcpRegistryManager;
+import io.quarkiverse.acp.registry.RegistryCommand;
 import io.quarkiverse.agentclientprotocol.sdk.client.AcpClient;
 import io.quarkiverse.agentclientprotocol.sdk.client.AcpSyncClient;
 import io.quarkiverse.agentclientprotocol.sdk.client.transport.AgentParameters;
@@ -9,6 +11,7 @@ import io.quarkus.picocli.runtime.annotations.TopCommand;
 import org.jboss.logging.Logger;
 import picocli.CommandLine;
 import picocli.AutoComplete.GenerateCompletion;
+import picocli.codegen.docgen.manpage.ManPageGenerator;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,45 +37,39 @@ import java.util.logging.Level;
  * <p>Usage:
  * <pre>{@code
  * # Using a known agent (resolves binary and args automatically)
- * acp-client --agent claude --provider vertex-ai --model claude-opus-4-6 --prompt "Say hello"
+ * acp --agent claude-acp --provider vertex-ai --model claude-opus-4-6 --prompt "Say hello"
  *
  * # Using a custom agent binary
- * acp-client --agent-binary my-agent --agent-args "serve" --prompt "Say hello"
+ * acp --agent-binary my-agent --agent-args "serve" --prompt "Say hello"
  * }</pre>
  */
 @TopCommand
 @CommandLine.Command(
-        name = "acp-client",
+        name = "acp",
         mixinStandardHelpOptions = true,
         version = "0.1.0-SNAPSHOT",
-        description = "CLI client for any ACP-compatible agent (OpenCode, Claude, Pi, Gemini, etc.)",
-        subcommands = GenerateCompletion.class
+        description = "CLI for any ACP-compatible agent (OpenCode, Claude, Pi, Gemini, etc.)",
+        subcommands = {ManPageGenerator.class, GenerateCompletion.class, RegistryCommand.class}
 )
-public class AcpAgentCommand implements Runnable {
+public class AcpClientCommand implements Runnable {
 
-    private static final Logger logger = Logger.getLogger(AcpAgentCommand.class);
+    private static final Logger logger = Logger.getLogger(AcpClientCommand.class);
 
-    // ── Agent registry ──────────────────────────────────────────────────────
-    // Maps friendly agent names to their binary and default arguments.
+    // ── Agent resolution ────────────────────────────────────────────────────
+    // Agents are resolved dynamically from the ACP registry.
+    // Use 'acp install <agent-id>' to install an agent first.
+    // Agent IDs match the ACP registry (e.g. opencode, claude-acp, pi-acp, gemini).
 
-    private record AgentDef(String binary, String args) {}
-
-    private static final Map<String, AgentDef> AGENT_REGISTRY = Map.of(
-            "opencode", new AgentDef("opencode", "acp"),
-            "claude",   new AgentDef("claude-agent-acp", null),
-            "pi",       new AgentDef("pi-acp", null),
-            "gemini",   new AgentDef("gemini", "--acp"),
-            "bob",new AgentDef("/Users/cmoullia/code/_temp/bob-acp-adapter/bobshell-acp.sh", null)
-    );
+    private final AcpRegistryManager registryManager = new AcpRegistryManager();
 
     // ── Provider env-var requirements per agent + provider ──────────────────
-    // Key format: "agent:provider". Checked before launching the agent.
+    // Key format: "agent-id:provider". Checked before launching the agent.
 
     private static final Map<String, List<String>> PROVIDER_ENV_VARS = Map.ofEntries(
             Map.entry("opencode:zen",       List.of()),
             Map.entry("opencode:vertex-ai", List.of("GOOGLE_APPLICATION_CREDENTIALS", "VERTEX_LOCATION", "GOOGLE_CLOUD_PROJECT")),
-            Map.entry("claude:vertex-ai",   List.of("ANTHROPIC_VERTEX_PROJECT_ID", "CLAUDE_CODE_USE_VERTEX", "CLOUD_ML_REGION")),
-            Map.entry("pi:vertex-ai",       List.of("GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT", "CLOUD_ML_REGION")),
+            Map.entry("claude-acp:vertex-ai",   List.of("ANTHROPIC_VERTEX_PROJECT_ID", "CLAUDE_CODE_USE_VERTEX", "CLOUD_ML_REGION")),
+            Map.entry("pi-acp:vertex-ai",       List.of("GOOGLE_APPLICATION_CREDENTIALS", "GOOGLE_CLOUD_PROJECT", "CLOUD_ML_REGION")),
             Map.entry("gemini:vertex-ai",   List.of("GOOGLE_CLOUD_PROJECT"))
     );
 
@@ -80,12 +77,11 @@ public class AcpAgentCommand implements Runnable {
 
     private final StringBuilder thoughtBuffer = new StringBuilder();
     private volatile boolean messageOutputPending = false;
-    private volatile UsageUpdate lastUsage = null;
 
     // ── CLI options ─────────────────────────────────────────────────────────
 
     @CommandLine.Option(names = {"-a", "--agent"},
-            description = "ACP agent: opencode, claude, pi, gemini [env: ACP_AGENT]")
+            description = "ACP agent registry ID: opencode, claude-acp, pi-acp, gemini, ... (use 'acp reg list --registry' to see all) [env: ACP_AGENT]")
     String agent;
 
     @CommandLine.Option(names = {"--agent-binary"},
@@ -176,14 +172,25 @@ public class AcpAgentCommand implements Runnable {
             binary = acpAgentBinary;
             args = acpAgentArgs;
         } else {
-            AgentDef agentDef = AGENT_REGISTRY.get(agent);
-            if (agentDef != null) {
-                binary = agentDef.binary();
-                args = acpAgentArgs != null ? acpAgentArgs : agentDef.args();
+            // Resolve from installed agents ($HOME/.acp)
+            var agentCommand = registryManager.resolveAgentCommand(agent);
+            if (agentCommand != null) {
+                binary = agentCommand.binary();
+                args = acpAgentArgs != null ? acpAgentArgs
+                        : String.join(",", agentCommand.args());
             } else {
-                System.err.println("ERROR: Unknown agent '" + agent
-                        + "'. Known agents: " + AGENT_REGISTRY.keySet()
-                        + ". Use --agent-binary for custom agents.");
+                // Agent not installed — provide actionable guidance
+                AcpRegistryManager.Registry registry = registryManager.getCachedRegistry();
+                if (registry != null && registryManager.findAgent(registry, agent) != null) {
+                    System.err.println("ERROR: Agent '" + agent
+                            + "' exists in the ACP registry but is not installed.");
+                    System.err.println("Run:  acp reg install " + agent);
+                } else {
+                    System.err.println("ERROR: Unknown agent '" + agent + "'.");
+                    System.err.println("Run:  acp reg list --registry   to see available agents.");
+                    System.err.println("      acp reg install <id>      to install one.");
+                }
+                System.err.println("Alternatively, use --agent-binary to specify the agent binary directly.");
                 System.exit(1);
                 return;
             }
@@ -306,7 +313,6 @@ public class AcpAgentCommand implements Runnable {
             }
 
             // 7. Send a prompt
-            // TODO: Support to download SKILLS instead of having them locally
             skillPath = resolveOption(skillPath, "SKILL_PATH", null);
             String effectivePrompt = prompt;
             if (skillPath != null) {
@@ -325,28 +331,6 @@ public class AcpAgentCommand implements Runnable {
                 messageOutputPending = false;
             }
             logger.infof("Done! Stop reason: %s", response.stopReason());
-            if (response.usage() != null) {
-                var u = response.usage();
-                logger.infof("[Tokens detail] input=%s, output=%s, cached_read=%s, cached_write=%s",
-                        u.get("inputTokens"), u.get("outputTokens"),
-                        u.get("cachedReadTokens"), u.get("cachedWriteTokens"));
-
-                // Combined summary: total tokens, window usage, and cost
-                Object total = u.get("totalTokens");
-                String windowInfo = "";
-                String costInfo = "";
-                if (lastUsage != null) {
-                    if (lastUsage.size() != null) {
-                        windowInfo = String.format(" / %s window (%s used)",
-                                lastUsage.size(), lastUsage.used() != null ? lastUsage.used() : "?");
-                    }
-                    if (lastUsage.cost() != null) {
-                        costInfo = String.format(" | cost: %s %s",
-                                lastUsage.cost().get("amount"), lastUsage.cost().get("currency"));
-                    }
-                }
-                logger.infof("[Summary] total_tokens=%s%s%s", total, windowInfo, costInfo);
-            }
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -455,12 +439,13 @@ public class AcpAgentCommand implements Runnable {
                 logger.infof("[Config] %s", configUpdate.configOptions());
             }
             case CurrentModeUpdate mode -> logger.infof("[Mode] %s", mode.currentModeId());
-            case UsageUpdate usage -> {
-                lastUsage = usage;
-                logger.debugf("[Usage] used=%s size=%s cost=%s", usage.used(), usage.size(), usage.cost());
+            default -> {
+                if ("usage_update".equals(updateType) && update instanceof Map<?,?> map) {
+                    logger.infof("[Usage] used=%s size=%s cost=%s", map.get("used"), map.get("size"), map.get("cost"));
+                } else {
+                    logger.infof("[Update] %s: %s", updateType, update);
+                }
             }
-            default ->
-                logger.infof("[Update] %s: %s", updateType, update);
         }
     }
 
