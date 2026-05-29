@@ -57,19 +57,19 @@ A [JBang catalog](https://www.jbang.dev/documentation/guide/latest/alias_catalog
 
 ```shell
 # Run from the project root using the local catalog and uber jar generated under client/target/ !
-jbang acp-client --prompt "What is 6+6?"
+jbang acp --prompt "What is 6+6?"
 ```
 
 If you plan to use the tool outside of this project, then install it using the maven GAV
 ```shell
-jbang app install --name acp-client io.quarkiverse.ai:acp-java-client:0.1.0-SNAPSHOT:runner
+jbang app install --name acp io.quarkiverse.ai:acp-java-client:0.1.0-SNAPSHOT:runner
 
 cd /java/project/to/code/using/ai
-acp-client --prompt "Say hello"
+acp --prompt "Say hello"
 ```
 The command supports to generate the autocompletion bash script:
 ```shell
-source <(acp-client generate-completion)
+source <(acp generate-completion)
 ```
 
 ### Running with Quarkus dev mode
@@ -126,23 +126,23 @@ When using `--agent opencode` with `--provider vertex-ai`, simple model names ar
 
 ```shell
 # OpenCode with Zen (default agent + provider)
-acp-client --prompt "Say Hello"
+acp --prompt "Say Hello"
 
 # Claude Code with Vertex AI
-acp-client --agent claude --provider vertex-ai --model claude-opus-4-6 \
+acp --agent claude --provider vertex-ai --model claude-opus-4-6 \
   --prompt "Say Hello"
 
 # Using environment variables
 export ACP_AGENT=claude
 export ACP_PROVIDER=vertex-ai
 export ACP_MODEL=claude-opus-4-6
-acp-client --prompt "Execute the java-project-discovery skill."
+acp --prompt "Execute the java-project-discovery skill."
 
 # Gemini CLI
-acp-client --agent gemini --prompt "Say Hello"
+acp --agent gemini --prompt "Say Hello"
 
 # Custom agent binary
-acp-client --agent-binary my-agent --agent-args "serve" --prompt "Say Hello"
+acp --agent-binary my-agent --agent-args "serve" --prompt "Say Hello"
 ```
 
 ## Agents and providers
@@ -196,11 +196,11 @@ The `--workspace-path` option sets the project directory used as CWD for the age
 
 ```shell
 # Run the agent against a different project directory
-acp-client --agent claude --workspace-path /path/to/my-project --prompt "Say hello"
+acp --agent claude --workspace-path /path/to/my-project --prompt "Say hello"
 
 # Using an environment variable
 export WORKSPACE_PATH=/path/to/my-project
-acp-client --agent claude --prompt "Say hello"
+acp --agent claude --prompt "Say hello"
 ```
 
 ### Workspace backup
@@ -218,19 +218,19 @@ When running against a Maven or Gradle project, the client automatically backs u
 ```shell
 # Backup is enabled by default — uses current directory name
 # CWD is set to the backup directory
-acp-client --agent claude --prompt "Refactor the service layer"
+acp --agent claude --prompt "Refactor the service layer"
 # → CWD: target/workdirs/my-project_20260526-143022/
 
 # Specify a backup project name (useful when running against multiple projects)
-acp-client --agent claude --backup-project-name my-service --prompt "Migrate to Jakarta"
+acp --agent claude --backup-project-name my-service --prompt "Migrate to Jakarta"
 # → CWD: target/workdirs/my-service_20260526-143022/
 
 # Combine workspace-path with backup
-acp-client --agent claude --workspace-path /path/to/my-project --prompt "Refactor"
+acp --agent claude --workspace-path /path/to/my-project --prompt "Refactor"
 # → CWD: /path/to/my-project/target/workdirs/my-project_20260526-143022/
 
 # Disable backup — CWD stays as workspace-path or current directory
-acp-client --agent claude --backup no --prompt "Refactor the service layer"
+acp --agent claude --backup no --prompt "Refactor the service layer"
 ```
 
 ## Logging
